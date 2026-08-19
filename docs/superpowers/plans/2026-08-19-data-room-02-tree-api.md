@@ -1613,6 +1613,11 @@ import { RollupService } from './rollup.service'
 export class NodesModule {}
 ```
 
+`NodesModule` takes ownership of `RollupService`. It lives in `src/nodes/` and was provided by `RoomsModule` in Task 8 only because this module did not exist yet. Move it now: drop `RollupService` from `RoomsModule`'s `providers` and `exports`, and give `RoomsModule` `imports: [NodesModule]`. Leaving both modules providing it would give each its own instance, and the dependency direction would keep pointing from rooms into nodes' file tree while the module graph claimed the opposite.
+
+```ts
+```
+
 Add `NodesModule` to `AppModule.imports`.
 
 - [ ] **Step 5: Run the tests to verify they pass**
