@@ -7,10 +7,13 @@ describe('DomainError → HTTP status', () => {
     ['GONE', 410],
     ['NAME_CONFLICT', 409],
     ['MOVE_CYCLE', 409],
+    ['INVALID_TARGET', 409],
     ['UPLOAD_NOT_FOUND', 409],
     ['TOO_LARGE', 413],
     ['UNSUPPORTED_TYPE', 415],
     ['VALIDATION', 422],
+    ['INVALID_CREDENTIALS', 401],
+    ['EMAIL_TAKEN', 409],
   ] as const)('maps %s to %i', (code, status) => {
     expect(new DomainError(code, 'msg').status).toBe(status)
   })

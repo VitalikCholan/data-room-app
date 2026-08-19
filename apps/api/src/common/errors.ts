@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'UNSUPPORTED_TYPE'
   | 'VALIDATION'
   | 'INVALID_CREDENTIALS'
+  | 'EMAIL_TAKEN'
 
 const STATUS: Record<ErrorCode, number> = {
   NOT_FOUND: 404,
@@ -23,6 +24,7 @@ const STATUS: Record<ErrorCode, number> = {
   UNSUPPORTED_TYPE: 415,
   VALIDATION: 422,
   INVALID_CREDENTIALS: 401,
+  EMAIL_TAKEN: 409,
 }
 
 export class DomainError extends Error {

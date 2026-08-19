@@ -19,6 +19,7 @@ export class TokensService {
       {
         secret: this.config.get('JWT_SECRET', { infer: true }),
         expiresIn: '15m',
+        algorithm: 'HS256',
       },
     )
   }
@@ -29,6 +30,7 @@ export class TokensService {
       {
         secret: this.config.get('REFRESH_SECRET', { infer: true }),
         expiresIn: '7d',
+        algorithm: 'HS256',
       },
     )
   }
@@ -36,6 +38,7 @@ export class TokensService {
   verifyRefresh(token: string): { sub: string } {
     return this.jwt.verify(token, {
       secret: this.config.get('REFRESH_SECRET', { infer: true }),
+      algorithms: ['HS256'],
     })
   }
 

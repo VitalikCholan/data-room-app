@@ -56,6 +56,12 @@ describe('validateEnv', () => {
       /JWT_SECRET/,
     )
   })
+
+  it('rejects JWT_SECRET and REFRESH_SECRET being set to the same value', () => {
+    expect(() =>
+      validateEnv({ ...valid, REFRESH_SECRET: valid.JWT_SECRET }),
+    ).toThrow(/JWT_SECRET.*REFRESH_SECRET/s)
+  })
 })
 
 describe('googleEnabled', () => {

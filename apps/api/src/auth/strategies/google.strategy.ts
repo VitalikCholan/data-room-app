@@ -6,7 +6,12 @@ import type { Profile } from 'passport-google-oauth20'
 import { AppEnv } from '../../config/env'
 import { DomainError } from '../../common/errors'
 
-export type GoogleProfile = { googleId: string; email: string; name: string }
+export type GoogleProfile = {
+  googleId: string
+  email: string
+  name: string
+  emailVerified: boolean
+}
 
 /**
  * `ConfigService.get` types `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` as
@@ -52,6 +57,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       googleId: profile.id,
       email,
       name: profile.displayName ?? email,
+      // Google's own verification status, not ours: linking an unverified address to an
+      // existing password account would let anyone claiming that address on Google
+      // inherit the victim's account. `AuthService.upsertGoogleUser` enforces this.
+      emailVerified: profile._json.email_verified ?? false,
     }
   }
 }

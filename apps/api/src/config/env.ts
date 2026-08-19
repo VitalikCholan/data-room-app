@@ -86,6 +86,14 @@ export function validateEnv(raw: Record<string, unknown>): AppEnv {
       .join('\n')
     throw new Error(`Invalid environment:\n${detail}`)
   }
+  // Per-field validation can't see across fields. If an operator sets JWT_SECRET and
+  // REFRESH_SECRET to the same value, the two-token design silently collapses: an access
+  // token becomes a valid refresh token and vice versa, and nothing else would catch it.
+  if (env.JWT_SECRET === env.REFRESH_SECRET) {
+    throw new Error(
+      'Invalid environment:\n  JWT_SECRET and REFRESH_SECRET must not be the same value',
+    )
+  }
   return env
 }
 
