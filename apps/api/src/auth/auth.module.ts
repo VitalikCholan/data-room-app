@@ -21,6 +21,10 @@ export function googleProviders(
  * before `ConfigModule` loads `apps/api/.env`. `main.ts` imports `dotenv/config` as its
  * first statement, so the file is already in `process.env` by the time this module is
  * evaluated. Full validation still happens in `ConfigModule.forRoot({ validate: validateEnv })`.
+ *
+ * Computed once here and reused below for both `controllers` and `providers`, so the two
+ * arrays are visibly in lockstep rather than each independently re-deriving the same
+ * decision from `process.env`.
  */
 const googleConfigured = googleEnabled(process.env)
 
@@ -33,7 +37,7 @@ const googleConfigured = googleEnabled(process.env)
     AuthService,
     TokensService,
     JwtStrategy,
-    ...googleProviders(process.env),
+    ...(googleConfigured ? [GoogleStrategy] : []),
   ],
   exports: [AuthService, TokensService],
 })
