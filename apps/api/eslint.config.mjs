@@ -35,4 +35,17 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // Scoped to test/**/*.ts only — src/** keeps the rule as set above. e2e specs hand
+    // `app.getHttpServer()` (typed `any` by supertest/@types/express) into `request()` on
+    // every single call; that is the test *fixture*, not the behaviour under test, and
+    // typing it precisely would just document supertest's own loose types back to
+    // ourselves. This was 19 warnings across 2 files with no exceptions, and plans 02/03
+    // add ~15 more specs on the identical pattern — an explicit, narrow off beats everyone
+    // learning to scroll past a warning count that only grows.
+    files: ['test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+    },
+  },
 );

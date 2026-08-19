@@ -21,6 +21,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           (req.cookies?.access_token as string | undefined) ?? null,
       ]),
       secretOrKey: config.get('JWT_SECRET', { infer: true }),
+      // The attacker controls the token, not us — pin the algorithm on the verification
+      // side (passport-jwt passes this straight through to jsonwebtoken.verify), closing
+      // the same alg-confusion gap that tokens.service.ts already closes on sign/verify.
+      algorithms: ['HS256'],
     })
   }
 
