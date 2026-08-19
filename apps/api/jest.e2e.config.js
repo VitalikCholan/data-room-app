@@ -1,6 +1,9 @@
 module.exports = {
   rootDir: '.',
   testEnvironment: 'node',
+  // `test:e2e` sets DOTENV_CONFIG_PATH=.env.test, which `dotenv/config` reads on its own
+  // (see dotenv/lib/env-options.js) — without it this would load the development .env
+  // and every e2e spec would read and write the same database `pnpm dev` uses.
   setupFiles: ['dotenv/config', 'reflect-metadata'],
   // Override the project's `module: nodenext` for the test transform only (the real
   // build still uses tsconfig.build.json via `nest build`). Under nodenext, TS leaves
