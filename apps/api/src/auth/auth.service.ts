@@ -5,6 +5,7 @@ import { DomainError } from '../common/errors'
 import { TokensService } from './tokens.service'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
+import { Prisma } from '../generated/prisma/client'
 
 export type AuthUser = { id: string; email: string; name: string }
 
@@ -23,14 +24,29 @@ export class AuthService {
         'An account with this email already exists',
       )
     }
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        name: dto.name,
-        passwordHash: await argon2.hash(dto.password),
-      },
-    })
-    return this.issue(user)
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email,
+          name: dto.name,
+          passwordHash: await argon2.hash(dto.password),
+        },
+      })
+      return this.issue(user)
+    } catch (error) {
+      // Two registrations can race past the findUnique above; the unique index is the
+      // real authority, and the caller should see the same message either way.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new DomainError(
+          'NAME_CONFLICT',
+          'An account with this email already exists',
+        )
+      }
+      throw error
+    }
   }
 
   async login(dto: LoginDto) {

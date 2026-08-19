@@ -4,10 +4,12 @@ import cookieParser from 'cookie-parser'
 import request from 'supertest'
 import { AppModule } from '../src/app.module'
 import { DomainExceptionFilter } from '../src/common/filters/domain-exception.filter'
+import { PrismaService } from '../src/prisma/prisma.service'
 import { randomUUID } from 'node:crypto'
 
 describe('auth flow', () => {
   let app: INestApplication
+  let prisma: PrismaService
   const email = `e2e-${randomUUID()}@t.io`
 
   beforeAll(async () => {
@@ -17,6 +19,7 @@ describe('auth flow', () => {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     app.useGlobalFilters(new DomainExceptionFilter())
     await app.init()
+    prisma = mod.get(PrismaService)
   })
   afterAll(() => app.close())
 
@@ -51,5 +54,50 @@ describe('auth flow', () => {
       .set('Cookie', cookie)
       .expect(201)
       .expect((r) => expect(r.body.accessToken).toBeTruthy())
+  })
+
+  it('rejects a token for a deleted user with 401', async () => {
+    const staleEmail = `e2e-stale-${randomUUID()}@t.io`
+    const reg = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: staleEmail, password: 'password123', name: 'Stale' })
+      .expect(201)
+    const accessToken = reg.body.accessToken as string
+
+    await prisma.user.delete({ where: { email: staleEmail } })
+
+    await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(401)
+  })
+
+  it('rejects /auth/refresh with no cookie at all', async () => {
+    await request(app.getHttpServer()).post('/auth/refresh').expect(401)
+  })
+
+  it('rejects /auth/refresh with a syntactically invalid cookie value', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Cookie', 'refresh_token=not-a-jwt')
+      .expect(401)
+  })
+
+  it('clears the refresh cookie on logout so it can no longer be used to refresh', async () => {
+    const login = await request(app.getHttpServer()).post('/auth/login').send({ email, password: 'password123' }).expect(201)
+    const loginCookie = login.headers['set-cookie']
+
+    const logout = await request(app.getHttpServer())
+      .post('/auth/logout')
+      .set('Cookie', loginCookie)
+      .expect(201)
+    const logoutCookie = logout.headers['set-cookie'].join()
+    expect(logoutCookie).toMatch(/refresh_token=;/)
+    expect(logoutCookie).toMatch(/Expires=Thu, 01 Jan 1970/i)
+
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .set('Cookie', logout.headers['set-cookie'])
+      .expect(401)
   })
 })
