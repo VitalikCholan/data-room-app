@@ -1429,7 +1429,7 @@ import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLen
 import { Type } from 'class-transformer'
 
 /** Slashes would corrupt path arithmetic; control characters break the cursor. */
-const SAFE_NAME = /^[^/\\ -]+$/
+const SAFE_NAME = /^[^/\\\x00-\x1f]+$/
 
 export class NodeNameDto {
   @ApiProperty({ example: 'Financials' })

@@ -1044,7 +1044,7 @@ export function validateNodeName(name: string): string | null {
   if (trimmed.length > 255) return 'Name must be 255 characters or fewer'
   if (/[/\\]/.test(trimmed)) return 'Name cannot contain slashes'
   // eslint-disable-next-line no-control-regex
-  if (/[ -]/.test(trimmed)) return 'Name cannot contain control characters'
+  if (/[\x00-\x1f]/.test(trimmed)) return 'Name cannot contain control characters'
   return null
 }
 ```

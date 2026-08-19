@@ -511,7 +511,7 @@ Expected: FAIL — 404 on the presign route.
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsIn, IsInt, IsMimeType, IsOptional, IsString, Matches, MaxLength, Min, MinLength } from 'class-validator'
 
-const SAFE_NAME = /^[^/\\ -]+$/
+const SAFE_NAME = /^[^/\\\x00-\x1f]+$/
 
 export class PresignUploadDto {
   @ApiProperty()
