@@ -140,6 +140,32 @@ describe('rooms', () => {
       .expect(404)
   })
 
+  it('returns 404 when deleting someone else’s room, and leaves it intact', async () => {
+    const stranger = await createUser()
+    const loginRes = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: stranger.email, password: stranger.password })
+    const strangerToken = (loginRes.body as LoginBody).accessToken
+
+    const mine = await request(app.getHttpServer())
+      .post('/rooms')
+      .set(auth())
+      .send({ name: 'Not Yours To Delete' })
+      .expect(201)
+    const mineBody = mine.body as RoomBody
+
+    await request(app.getHttpServer())
+      .delete(`/rooms/${mineBody.id}`)
+      .set({ Authorization: `Bearer ${strangerToken}` })
+      .expect(404)
+
+    await expect(
+      prisma.dataRoom.findUniqueOrThrow({ where: { id: mineBody.id } }),
+    ).resolves.toMatchObject({
+      id: mineBody.id,
+    })
+  })
+
   // Validation failures are 422: the global pipe's exceptionFactory raises
   // DomainError('VALIDATION'), which maps to 422, not the ValidationPipe's default 400.
   it('rejects an empty room name with 422', async () => {

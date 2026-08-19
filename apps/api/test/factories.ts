@@ -103,5 +103,14 @@ export async function createShare(input: {
   tokenHash?: string
   granteeEmail?: string
 }) {
-  return prisma.share.create({ data: { ...input, role: 'VIEWER' } })
+  // Lowercased on write, matching RoomsService.listSharedWithMe (and Task 9's
+  // AccessResolver), both of which match on `email.toLowerCase()` — a mixed-case
+  // grantee address here would silently never match either lookup.
+  return prisma.share.create({
+    data: {
+      ...input,
+      granteeEmail: input.granteeEmail?.toLowerCase(),
+      role: 'VIEWER',
+    },
+  })
 }
