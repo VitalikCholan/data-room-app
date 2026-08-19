@@ -61,6 +61,25 @@ describe('DeleteService', () => {
     })
   })
 
+  it('previews a bare file, not a folder', async () => {
+    const t = await tree()
+    await createShare({
+      nodeId: t.msa.id,
+      mode: 'PUBLIC_LINK',
+      createdById: t.owner.id,
+      tokenHash: hashShareToken('file-preview-token'),
+    })
+    const msa = await prisma.node.findUniqueOrThrow({
+      where: { id: t.msa.id },
+    })
+    await expect(del.preview(t.ctx, msa)).resolves.toMatchObject({
+      folders: 0,
+      files: 1,
+      bytes: 3000,
+      activeShares: 1,
+    })
+  })
+
   it('counts the shares that will stop working', async () => {
     const t = await tree()
     await createShare({
@@ -200,6 +219,64 @@ describe('DeleteService', () => {
     expect(result.deletedNodes).toBe(0)
 
     for (const id of [b.legal.id, b.contracts.id, b.msa.id, b.nda.id]) {
+      const row = await prisma.node.findUniqueOrThrow({ where: { id } })
+      expect(row.deletedAt).toBeNull()
+    }
+  })
+
+  /**
+   * Every real caller's `ctx` comes from `AccessResolver`, which only ever hands an
+   * OWNER a context rooted at the room root — so `roomId` equality and `withinScope`
+   * denote the same rows for every route that exists today. This constructs a ctx
+   * scoped to a subtree (`Financials`, a sibling of `Legal` with no children of its
+   * own) narrower than the room, the way a future caller with a genuinely
+   * subtree-scoped role could, and previews `Legal` — a node in the same room but
+   * outside that scope. `roomId = ctx.roomId` alone would let the real subtree totals
+   * and share count through; only `withinScope` (on both the rollup and the share
+   * count) zeroes them.
+   */
+  it("cross-scope: preview of a node outside the caller's narrower scope counts nothing", async () => {
+    const t = await tree()
+    const financials = await createFolder(t.root, 'Financials', t.owner.id)
+    await createShare({
+      nodeId: t.contracts.id,
+      mode: 'PUBLIC_LINK',
+      createdById: t.owner.id,
+      tokenHash: hashShareToken('narrower-scope-share'),
+    })
+    const scopedCtx: AccessContext = {
+      ...t.ctx,
+      scopeRootId: financials.id,
+      scopePath: childPath(financials),
+    }
+
+    await expect(del.preview(scopedCtx, t.legal)).resolves.toMatchObject({
+      folders: 0,
+      files: 0,
+      bytes: 0,
+      activeShares: 0,
+    })
+  })
+
+  /**
+   * Same narrower-scope setup as above, but exercising `remove()`: without
+   * `withinScope` on the descendants/self UPDATEs, `roomId = ctx.roomId` alone would
+   * still let a caller scoped to `Financials` tombstone `Legal` and everything under
+   * it, since both live in the same room.
+   */
+  it("cross-scope: remove of a node outside the caller's narrower scope deletes nothing", async () => {
+    const t = await tree()
+    const financials = await createFolder(t.root, 'Financials', t.owner.id)
+    const scopedCtx: AccessContext = {
+      ...t.ctx,
+      scopeRootId: financials.id,
+      scopePath: childPath(financials),
+    }
+
+    const result = await del.remove(scopedCtx, t.legal)
+    expect(result.deletedNodes).toBe(0)
+
+    for (const id of [t.legal.id, t.contracts.id, t.msa.id, t.nda.id]) {
       const row = await prisma.node.findUniqueOrThrow({ where: { id } })
       expect(row.deletedAt).toBeNull()
     }

@@ -216,4 +216,86 @@ describe('MoveService', () => {
     })
     expect(stillThere.parentId).toBe(otherRoom.rootId)
   })
+
+  /**
+   * Every real caller's `ctx` comes from `AccessResolver`, which only ever hands an
+   * OWNER a context rooted at the room root — so `roomId` equality and `withinScope`
+   * denote the same rows for every route that exists today. This constructs a ctx
+   * scoped to a subtree (`Financials`) narrower than the room, the way a future
+   * caller with a genuinely subtree-scoped role could, and moves a source (`MSA.pdf`,
+   * living under `Legal/Contracts`) that is in the same room but outside that scope.
+   * `roomId = ctx.roomId` alone would let this source through; only `withinScope`
+   * excludes it.
+   */
+  it("cross-scope: refuses to move a source node outside the caller's narrower scope", async () => {
+    const t = await tree()
+    const scopedCtx: AccessContext = {
+      ...t.ctx,
+      scopeRootId: t.financials.id,
+      scopePath: childPath(t.financials),
+    }
+
+    await expect(
+      move.move(scopedCtx, t.msa.id, t.financials.id),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
+    const stillThere = await prisma.node.findUniqueOrThrow({
+      where: { id: t.msa.id },
+    })
+    expect(stillThere.parentId).toBe(t.contracts.id)
+  })
+
+  /**
+   * The mirror case: the source (a file freshly created inside the caller's scoped
+   * folder) is in scope, but the destination (`Legal`) is not. `roomId = ctx.roomId`
+   * alone would also let this target through since it is the same room; only
+   * `withinScope` on the locking query excludes it.
+   */
+  it("cross-scope: refuses to move into a target outside the caller's narrower scope", async () => {
+    const t = await tree()
+    const note = await createFile(t.financials, 'Note.pdf', t.owner.id)
+    const scopedCtx: AccessContext = {
+      ...t.ctx,
+      scopeRootId: t.financials.id,
+      scopePath: childPath(t.financials),
+    }
+
+    await expect(
+      move.move(scopedCtx, note.id, t.legal.id),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
+    const stillThere = await prisma.node.findUniqueOrThrow({
+      where: { id: note.id },
+    })
+    expect(stillThere.parentId).toBe(t.financials.id)
+  })
+
+  /**
+   * Positive-path coverage for the same narrower scope, matching the theory in
+   * `move.service.ts`: once the locking query has confirmed the source is inside
+   * `ctx`'s scope, every descendant's path is necessarily inside it too (a
+   * descendant's path always extends its ancestor's), so the `withinScope` clause on
+   * the descendant-rewrite UPDATE can never itself flip this outcome — it is
+   * defense-in-depth, not a distinguishing condition. This exercises the rewrite
+   * under a subtree-scoped ctx anyway, so a future change to that invariant (e.g. a
+   * caller resolving `src` by some path other than the guard) has a test watching it.
+   */
+  it('moves a subtree with descendants under a narrower scope', async () => {
+    const t = await tree()
+    const amendments = await createFolder(t.legal, 'Amendments', t.owner.id)
+    const scopedCtx: AccessContext = {
+      ...t.ctx,
+      scopeRootId: t.legal.id,
+      scopePath: childPath(t.legal),
+    }
+
+    await move.move(scopedCtx, t.contracts.id, amendments.id)
+
+    const contracts = await prisma.node.findUniqueOrThrow({
+      where: { id: t.contracts.id },
+    })
+    const msa = await prisma.node.findUniqueOrThrow({ where: { id: t.msa.id } })
+    expect(contracts.path).toBe(childPath(amendments))
+    expect(msa.path).toBe(`${childPath(amendments)}${t.contracts.id}/`)
+  })
 })

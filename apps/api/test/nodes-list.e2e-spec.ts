@@ -299,6 +299,58 @@ describe('node listing', () => {
       .expect(403)
   })
 
+  it('refuses a move from a share viewer with 403, not 404', async () => {
+    const f = await ownerFixture()
+    const file = await createFile(f.root, 'readonly.pdf', f.owner.id)
+    const token = 'move-viewer-token'
+    await createShare({
+      nodeId: f.rootId,
+      mode: 'PUBLIC_LINK',
+      createdById: f.owner.id,
+      tokenHash: hashShareToken(token),
+    })
+
+    await request(app.getHttpServer())
+      .post(`/nodes/${file.id}/move`)
+      .set({ 'X-Share-Token': token })
+      .send({ targetParentId: f.rootId })
+      .expect(403)
+  })
+
+  it('refuses a delete from a share viewer with 403, not 404', async () => {
+    const f = await ownerFixture()
+    const file = await createFile(f.root, 'readonly.pdf', f.owner.id)
+    const token = 'delete-viewer-token'
+    await createShare({
+      nodeId: f.rootId,
+      mode: 'PUBLIC_LINK',
+      createdById: f.owner.id,
+      tokenHash: hashShareToken(token),
+    })
+
+    await request(app.getHttpServer())
+      .delete(`/nodes/${file.id}`)
+      .set({ 'X-Share-Token': token })
+      .expect(403)
+  })
+
+  it('refuses a deletion preview from a share viewer with 403, not 404', async () => {
+    const f = await ownerFixture()
+    const file = await createFile(f.root, 'readonly.pdf', f.owner.id)
+    const token = 'preview-viewer-token'
+    await createShare({
+      nodeId: f.rootId,
+      mode: 'PUBLIC_LINK',
+      createdById: f.owner.id,
+      tokenHash: hashShareToken(token),
+    })
+
+    await request(app.getHttpServer())
+      .get(`/nodes/${file.id}/deletion-preview`)
+      .set({ 'X-Share-Token': token })
+      .expect(403)
+  })
+
   it('does not list a Financials sibling when the caller is scoped to Legal', async () => {
     const f = await ownerFixture()
     const legal = await createFolder(f.root, 'Legal', f.owner.id)

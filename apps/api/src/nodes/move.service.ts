@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma } from '../generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { withinScope } from '../access/access-context'
 import type { AccessContext } from '../access/access-context'
 import { DomainError, notFound } from '../common/errors'
 import { childPath } from './node-path'
@@ -24,12 +25,18 @@ export class MoveService {
 
     return this.prisma.$transaction(async (tx) => {
       // Lock both endpoints so a concurrent move cannot slip between the cycle
-      // check and the UPDATE.
+      // check and the UPDATE. `roomId` stays alongside `withinScope` rather than
+      // being replaced by it: it is what lets the planner use the
+      // (roomId, path varchar_pattern_ops) index, `withinScope` is what actually
+      // proves both rows are inside the caller's granted subtree, not merely their
+      // room — the two are equivalent today only because every OWNER's scope root
+      // is the room root.
       const locked = await tx.$queryRaw<LockedNode[]>`
         SELECT id, "roomId", "parentId", path, name, type
         FROM "Node"
         WHERE id IN (${sourceId}, ${targetParentId})
           AND "roomId" = ${ctx.roomId}
+          AND ${withinScope(ctx)}
           AND "deletedAt" IS NULL
         FOR UPDATE`
 
@@ -77,7 +84,7 @@ export class MoveService {
         await tx.$executeRaw`
           UPDATE "Node"
           SET path = ${newPrefix} || substring(path from ${oldPrefix.length + 1}::int)
-          WHERE "roomId" = ${src.roomId} AND path LIKE ${`${oldPrefix}%`}`
+          WHERE "roomId" = ${src.roomId} AND path LIKE ${`${oldPrefix}%`} AND ${withinScope(ctx)}`
 
         return await tx.node.update({
           where: { id: src.id },
