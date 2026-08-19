@@ -1217,9 +1217,18 @@ import { defineConfig, env } from 'prisma/config'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
+  migrations: {
+    path: 'prisma/migrations',
+    // Wired here so `prisma db seed` works; the script itself arrives in plan 06.
+    seed: 'ts-node src/seed/seed.ts',
+  },
   datasource: { url: env('DATABASE_URL') },
 })
 ```
+
+**Prisma 7 no longer generates the client as a side effect of `migrate dev`.** Run `prisma generate` explicitly after every schema change, including right after the initial migration — otherwise the imports in `PrismaService` and the tests resolve to a directory that does not exist yet.
+
+**Destructive commands are gated for AI agents.** `migrate reset`, `db push --force-reset` and `db push --accept-data-loss` are blocked until the agent has explicit user consent, and the consent must not be inferred from earlier messages. This task never needs them: the database is empty and `migrate dev` on an empty database creates without destroying. If migration drift appears, escalate rather than resetting.
 
 Then create a second migration for the three indexes Prisma cannot express:
 
