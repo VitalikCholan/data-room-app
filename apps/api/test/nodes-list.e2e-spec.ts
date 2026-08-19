@@ -84,6 +84,32 @@ describe('node listing', () => {
     expect(body.nextCursor).toBeNull()
   })
 
+  // Round-1 fix: the sort key concatenated a fixed '0'/'1' type marker with the sort
+  // expression and applied one direction to the whole string. Under a descending
+  // mode ('updatedAt', 'size') the marker's own ordering flips too, so files (marker
+  // '1') sorted ahead of folders (marker '0') — the opposite of the requirement.
+  // This is the test that was missing: the earlier folders-first case only checked
+  // the default `sort=name`, where descending is never exercised.
+  it('sorts folders before files under every sort mode', async () => {
+    const f = await ownerFixture()
+    await createFile(f.root, 'big.pdf', f.owner.id, 5000)
+    await createFile(f.root, 'small.pdf', f.owner.id, 10)
+    await createFolder(f.root, 'Zebra', f.owner.id)
+    await createFolder(f.root, 'Alpha', f.owner.id)
+
+    for (const sort of ['name', 'updatedAt', 'size'] as const) {
+      const res = await request(app.getHttpServer())
+        .get(`/rooms/${f.roomId}/nodes?sort=${sort}`)
+        .set({ Authorization: `Bearer ${f.token}` })
+        .expect(200)
+      const body = res.body as ListBody
+
+      expect(body.items).toHaveLength(4)
+      const types = body.items.map((i) => i.type)
+      expect(types.indexOf('FILE')).toBeGreaterThan(types.lastIndexOf('FOLDER'))
+    }
+  })
+
   it('does not list PENDING uploads', async () => {
     const f = await ownerFixture()
     await createFile(f.root, 'visible.pdf', f.owner.id)
