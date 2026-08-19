@@ -41,6 +41,12 @@ export class CreateFolderDto extends NodeNameDto {
 
 export class RenameNodeDto extends NodeNameDto {}
 
+export class MoveNodeDto {
+  @ApiProperty({ description: 'Destination folder id' })
+  @IsString()
+  targetParentId: string
+}
+
 export class ListNodesQueryDto {
   @ApiPropertyOptional({
     description: 'Folder to list; defaults to the room root',
