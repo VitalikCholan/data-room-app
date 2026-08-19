@@ -33,7 +33,7 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Create an account' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
-  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 422, description: 'Validation failed' })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
@@ -87,6 +87,8 @@ export class AuthController {
   @ApiOperation({ summary: 'Current session' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
   me(@CurrentUser() user: AuthUser) {
-    return user
+    // Matches register/login/refresh's `{ user, ... }` envelope: a flat user body here
+    // was the odd one out, and that shape freezes as soon as openapi.json is emitted.
+    return { user }
   }
 }
