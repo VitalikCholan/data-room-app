@@ -8,7 +8,7 @@
 
 **Architecture:** The guest route resolves a token once, stores it in the API client, and then renders the same browser components as the owner — the role from the listing response does the rest. One API adjustment is needed: an `iframe` cannot send a custom header, so `GET /nodes/:id/content` also accepts the share token as a query parameter.
 
-**Tech Stack:** React 18, TanStack Query 5, NestJS 10, `pdf-lib` for seed documents, GitHub Actions.
+**Tech Stack:** React 18, TanStack Query 5, NestJS 11, `pdf-lib` for seed documents, GitHub Actions.
 
 **Prerequisite:** Plan 05 complete — browser, uploads and viewer working for an owner.
 

@@ -1735,9 +1735,9 @@ describe('search', () => {
     expect(res.body.items.map((i: { name: string }) => i.name).sort()).toEqual(['FY23 Audit.pdf', 'FY24 Audit.pdf'])
   })
 
-  it('rejects a query shorter than two characters with 400', async () => {
+  it('rejects a query shorter than two characters with 422', async () => {
     const f = await fixture()
-    await request(app.getHttpServer()).get(`/rooms/${f.roomId}/search?q=a`).set(f.auth).expect(400)
+    await request(app.getHttpServer()).get(`/rooms/${f.roomId}/search?q=a`).set(f.auth).expect(422)
   })
 
   it('treats a percent sign as a literal, not a wildcard', async () => {

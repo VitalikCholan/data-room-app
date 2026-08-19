@@ -12,7 +12,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
-**Prerequisite:** Plan 03 complete — `openapi.json` emitted, full API green and deployed.
+**Prerequisite:** Plan 03 complete — `openapi.json` emitted, full API green and deployed to Railway.
+
+**Note:** Task 17b below is the deferred half of plan 01's Task 3. It must run first: no `apps/web` directory exists yet, so every later task in this plan modifies files that Task 17b creates.
 
 **Done when:** A visitor can register, sign in (email/password, and Google when configured), see their Data Rooms with real subtree totals, create, rename and delete a room, see what has been shared with them, and stay signed in across an access-token expiry without noticing.
 
@@ -50,6 +52,58 @@
 | `rooms/RoomCard.tsx`, `CreateRoomDialog.tsx`, `RenameRoomDialog.tsx`, `DeleteRoomDialog.tsx` | Room UI |
 | `rooms/hooks.ts` | `useRooms`, `useSharedWithMe`, `useCreateRoom`, `useRenameRoom`, `useDeleteRoom` |
 | `lib/format.ts` | Byte and date formatting |
+
+---
+
+### Task 17b: Create `apps/web` and deploy it to Vercel behind the `/api` rewrite
+
+This is plan 01's Task 3b, deferred because it needs a frontend to deploy and interactive Vercel authentication. It runs before anything else in this plan: `apps/web` does not exist yet.
+
+**Files:**
+- Create: `apps/web/package.json`, `apps/web/index.html`, `apps/web/vite.config.ts`, `apps/web/tsconfig.json`, `apps/web/src/main.tsx`, `apps/web/src/App.tsx`
+- Create: `vercel.json` at the repo root
+- Modify: the Railway `api` service's `PUBLIC_APP_URL` variable; the bucket's CORS allow-list
+
+**Interfaces:**
+- Consumes: the deployed Railway API and its `GET /health`
+- Produces: a live Vercel URL where `GET /api/health` returns `{"status":"ok"}` through the rewrite, making every browser request first-party
+
+- [ ] **Step 1: Create the minimal web app**
+
+Use the file contents from plan 01's Task 3 Step 1 verbatim — `package.json` (name `web`, the full dependency set), `vite.config.ts` (including the `/api` dev proxy that mirrors the production rewrite), `tsconfig.json`, `index.html`, `src/main.tsx`, and an `App.tsx` that fetches `${import.meta.env.VITE_API_BASE_URL}/health` and renders the result. That placeholder `App.tsx` is replaced in Task 19; its only job here is to prove the rewrite.
+
+- [ ] **Step 2: Add the rewrite**
+
+`vercel.json` at the repo root, with the Railway host from plan 01's Task 3a:
+```json
+{ "rewrites": [{ "source": "/api/:path*", "destination": "https://<api-host>/:path*" }] }
+```
+
+- [ ] **Step 3: Verify locally first**
+
+Run `pnpm --filter api dev` and `pnpm --filter web dev`, open `http://localhost:5173`, and confirm the page reads `api: ok`. This proves the `/api` prefix strip before any cloud is involved.
+
+- [ ] **Step 4: Deploy to Vercel**
+
+Import the repo. Root Directory `apps/web`, build `pnpm --filter web build`, install at the repo root, env `VITE_API_BASE_URL=/api`.
+
+- [ ] **Step 5: Close the loop on the API side**
+
+Set `PUBLIC_APP_URL` on the Railway `api` service to the Vercel URL and redeploy — `GoogleStrategy`'s `callbackURL` and the CORS allow-list both derive from it. Add the Vercel origin to the bucket's CORS rules alongside `http://localhost:5173`, keeping `PUT`/`GET`/`HEAD`, `ExposeHeaders: ["ETag"]`.
+
+- [ ] **Step 6: Verify the deployed round trip and the cookie**
+
+```bash
+curl -s https://<vercel-host>/api/health
+```
+Expected `{"status":"ok"}`. Then, in a browser on the Vercel URL, register an account and reload the page: the session must survive, which is the first real proof that the refresh cookie stays first-party through the rewrite with `SameSite=Lax`. That verification is the entire reason plan 01 deployed before writing features, and it is only now possible.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web vercel.json
+git commit -m "feat(web): vite app deployed to vercel behind an /api rewrite"
+```
 
 ---
 

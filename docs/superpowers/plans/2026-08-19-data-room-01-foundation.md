@@ -8,13 +8,15 @@
 
 **Architecture:** pnpm workspace with apps/api (NestJS + Prisma) and apps/web (Vite). Deployment happens in Task 3, on a bare app exposing /health, because cross-site cookies and bucket CORS are environment failures that cannot be found locally. The schema lands with three hand-written SQL indexes Prisma cannot express.
 
-**Tech Stack:** NestJS 10, Prisma 5, PostgreSQL 16, argon2, Passport (JWT + Google), class-validator + class-transformer, Jest + supertest, Docker Compose (Postgres + MinIO), Railway, Vercel.
+**Tech Stack:** NestJS 11, Prisma 7 (driver adapters), PostgreSQL 16, argon2, Passport (JWT + Google), class-validator + class-transformer, Jest + supertest, Docker Compose (Postgres + MinIO), Railway, Vercel.
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
 **Prerequisite:** none — this is the first plan.
 
-**Done when:** `curl https://<vercel-host>/api/health` returns `{"status":"ok"}`, `pnpm --filter api test` and `test:e2e` are green, and a user can register, sign in, and read `/auth/me`.
+**Done when:** `curl https://<api-host>/health` returns `{"status":"ok"}` against the deployed Railway service, `/docs` renders there, `pnpm --filter api test` and `test:e2e` are green, and a user can register, sign in, and read `/auth/me` — locally and in production.
+
+**Scope note (Task 3 was split during execution):** this plan owns **3a**, the Railway half — Postgres, an S3-compatible bucket, the api service, and a public domain. The Vercel half (**3b** — `apps/web` scaffolding, `vercel.json`'s `/api` rewrite, the Vercel deploy, and the bucket CORS entry for the Vercel origin) moved to the head of plan 04, because it needs a frontend to deploy and interactive Vercel authentication. Until 3b lands, the `SameSite=Lax` reasoning below is designed-for but unverified, and `GoogleStrategy`'s `callbackURL` presumes the rewrite exists.
 
 ## Global Constraints
 
@@ -791,7 +793,7 @@ git commit -m "feat(api): nest skeleton with typed env, error contract, health c
 
 ---
 
-### Task 3: Deploy both apps before writing features
+### Task 3a: Deploy the API to Railway before writing features
 
 Deployment goes first deliberately. The cross-site cookie problem and bucket CORS are environment failures that cannot be discovered locally, and discovering them in the eighth hour is not a plan.
 
@@ -1469,8 +1471,12 @@ describe('auth flow', () => {
     await request(app.getHttpServer()).get('/auth/me').expect(401)
   })
 
-  it('rejects a short password with 400 from validation', async () => {
-    await request(app.getHttpServer()).post('/auth/register').send({ email: 'x@y.io', password: 'short', name: 'X' }).expect(400)
+  it('rejects a short password with 422 and the VALIDATION code', async () => {
+    await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email: 'x@y.io', password: 'short', name: 'X' })
+      .expect(422)
+      .expect((r) => expect(r.body.code).toBe('VALIDATION'))
   })
 
   it('exchanges the refresh cookie for a new access token', async () => {
@@ -1728,7 +1734,7 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Create an account' })
   @ApiResponse({ status: 409, description: 'Email already registered' })
-  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 422, description: 'Validation failed — { code: VALIDATION, details }' })
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const { user, accessToken, refreshToken } = await this.auth.register(dto)
     this.tokens.setRefreshCookie(res, refreshToken)
