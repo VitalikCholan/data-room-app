@@ -1,0 +1,117 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  // This project's api package is CommonJS (ts-jest, nest build target commonjs);
+  // Prisma 7's default ESM output uses `import.meta.url`, which throws under CJS.
+  moduleFormat = "cjs"
+}
+
+// No `url` here — Prisma 7 rejects it. Migrate reads it from prisma.config.ts;
+// the client receives it through the driver adapter in PrismaService.
+datasource db {
+  provider = "postgresql"
+}
+
+enum NodeType {
+  FOLDER
+  FILE
+}
+
+enum NodeStatus {
+  PENDING
+  ACTIVE
+}
+
+enum ShareMode {
+  PUBLIC_LINK
+  USER
+}
+
+enum Role {
+  VIEWER
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String?
+  googleId     String?    @unique
+  name         String
+  createdAt    DateTime   @default(now())
+
+  rooms        DataRoom[]
+}
+
+model DataRoom {
+  id         String   @id @default(uuid())
+  ownerId    String
+  name       String
+  rootNodeId String   @unique
+  createdAt  DateTime @default(now())
+
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  nodes      Node[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Node {
+  id               String        @id @default(uuid())
+  roomId           String
+  parentId         String?
+  type             NodeType
+  name             String
+  path             String
+  status           NodeStatus    @default(PENDING)
+  currentVersionId String?       @unique
+  sizeBytes        BigInt?
+  deletedAt        DateTime?
+  createdById      String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  room             DataRoom      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  parent           Node?         @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children         Node[]        @relation("NodeChildren")
+  versions         FileVersion[]
+  shares           Share[]
+
+  @@index([parentId, name, id])
+  @@index([roomId, path])
+  @@index([roomId, name])
+  @@index([status, createdAt])
+}
+
+model FileVersion {
+  id          String   @id @default(uuid())
+  nodeId      String
+  versionNo   Int
+  blobKey     String
+  sizeBytes   BigInt
+  mimeType    String
+  checksum    String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  node        Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeId, versionNo])
+}
+
+model Share {
+  id           String    @id @default(uuid())
+  nodeId       String
+  mode         ShareMode
+  role         Role      @default(VIEWER)
+  tokenHash    String?   @unique
+  granteeEmail String?
+  granteeId    String?
+  createdById  String
+  createdAt    DateTime  @default(now())
+  revokedAt    DateTime?
+
+  node         Node      @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeId, granteeEmail])
+  @@index([nodeId, revokedAt])
+}

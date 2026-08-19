@@ -9,6 +9,7 @@ import cookieParser from 'cookie-parser'
 import { AppModule } from './app.module'
 import { buildSwagger } from './swagger'
 import { DomainExceptionFilter } from './common/filters/domain-exception.filter'
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 import { BigIntInterceptor } from './common/interceptors/bigint.interceptor'
 
 async function bootstrap() {
@@ -25,7 +26,9 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   )
-  app.useGlobalFilters(new DomainExceptionFilter())
+  // Global filters apply right to left, so the more specific Prisma filter must come
+  // first — it needs first refusal on Prisma errors before the domain filter runs.
+  app.useGlobalFilters(new PrismaExceptionFilter(), new DomainExceptionFilter())
   app.useGlobalInterceptors(new BigIntInterceptor())
   SwaggerModule.setup(
     'docs',
