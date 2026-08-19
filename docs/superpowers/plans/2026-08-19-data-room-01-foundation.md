@@ -413,6 +413,7 @@ Expected: FAIL — `Cannot find module './env'`, `Cannot find module '../errors'
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -756,6 +757,9 @@ export function buildSwagger() {
 
 `apps/api/src/main.ts`:
 ```ts
+// First import, deliberately: modules evaluated below read process.env at import time,
+// before ConfigModule gets a chance to load apps/api/.env.
+import 'dotenv/config'
 import 'reflect-metadata'
 import { ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
@@ -1834,7 +1838,7 @@ Modify `apps/api/src/auth/auth.module.ts`:
 import { Module, Provider } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
-import { AppEnv, googleEnabled, validateEnv } from '../config/env'
+import { AppEnv, googleEnabled } from '../config/env'
 import { AuthService } from './auth.service'
 import { AuthController } from './auth.controller'
 import { GoogleController } from './google.controller'
@@ -1847,12 +1851,18 @@ export function googleProviders(env: Pick<AppEnv, 'GOOGLE_CLIENT_ID' | 'GOOGLE_C
   return googleEnabled(env) ? [GoogleStrategy] : []
 }
 
-const env = validateEnv(process.env)
+/**
+ * Gated on raw `process.env`, not on `validateEnv`: this line runs at import time,
+ * before `ConfigModule` loads `apps/api/.env`. `main.ts` imports `dotenv/config` as its
+ * first statement, so the file is already in `process.env` by the time this module is
+ * evaluated. Full validation still happens in `ConfigModule.forRoot({ validate: validateEnv })`.
+ */
+const googleConfigured = googleEnabled(process.env)
 
 @Module({
   imports: [PassportModule, JwtModule.register({})],
-  controllers: googleEnabled(env) ? [AuthController, GoogleController] : [AuthController],
-  providers: [AuthService, TokensService, JwtStrategy, ...googleProviders(env)],
+  controllers: googleConfigured ? [AuthController, GoogleController] : [AuthController],
+  providers: [AuthService, TokensService, JwtStrategy, ...googleProviders(process.env)],
   exports: [AuthService, TokensService],
 })
 export class AuthModule {}
