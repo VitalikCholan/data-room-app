@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { AppModule } from '../src/app.module'
 import { AccessResolver } from '../src/access/access.resolver'
-import { DomainError } from '../src/common/errors'
 import { hashShareToken } from '../src/access/share-token'
 import {
   createFile,
@@ -212,6 +211,84 @@ describe('AccessResolver', () => {
   it('throws NOT_FOUND for an unknown node id', async () => {
     await expect(
       resolver.forNode({ nodeId: '00000000-0000-0000-0000-000000000000' }),
-    ).rejects.toBeInstanceOf(DomainError)
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('does not let a signed-in stranger inherit a USER share meant for someone else', async () => {
+    const f = await fixture()
+    const other = await createUser()
+    await createShare({
+      nodeId: f.legal.id,
+      mode: 'USER',
+      createdById: f.owner.id,
+      granteeEmail: other.email,
+    })
+    await expect(
+      resolver.forNode({ nodeId: f.msa.id, user: authUser(f.guest) }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('rejects a public link request presented with the wrong token', async () => {
+    const f = await fixture()
+    await createShare({
+      nodeId: f.contracts.id,
+      mode: 'PUBLIC_LINK',
+      createdById: f.owner.id,
+      tokenHash: hashShareToken('correct-token-fixture'),
+    })
+    await expect(
+      resolver.forNode({ nodeId: f.msa.id, shareToken: 'wrong-token' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('does not let a USER share be redeemed by token, nor a PUBLIC_LINK share be redeemed by the grantee email with no token', async () => {
+    const f = await fixture()
+    const crossedToken = 'crossed-mode-token-fixture'
+    // Anomalous rows, built past the factory (which only ever sets the field that
+    // matches its own mode): a USER share that also happens to carry a tokenHash, and
+    // a PUBLIC_LINK share that also happens to carry the grantee's email. If the SQL
+    // matched `tokenHash`/`granteeEmail` without gating each to its own `mode`, either
+    // row would let the wrong kind of caller through.
+    await prisma.share.create({
+      data: {
+        nodeId: f.legal.id,
+        mode: 'USER',
+        role: 'VIEWER',
+        createdById: f.owner.id,
+        granteeEmail: f.guest.email,
+        tokenHash: hashShareToken(crossedToken),
+      },
+    })
+    await expect(
+      resolver.forNode({ nodeId: f.msa.id, shareToken: crossedToken }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+
+    await prisma.share.create({
+      data: {
+        nodeId: f.financials.id,
+        mode: 'PUBLIC_LINK',
+        role: 'VIEWER',
+        createdById: f.owner.id,
+        granteeEmail: f.guest.email,
+      },
+    })
+    await expect(
+      resolver.forNode({ nodeId: f.financials.id, user: authUser(f.guest) }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
+
+  it('does not let a grant in one room reach a node in a different room', async () => {
+    const f = await fixture()
+    const other = await createRoom(f.owner.id, 'Project Other')
+    const otherFile = await createFile(other.root, 'Other.pdf', f.owner.id)
+    await createShare({
+      nodeId: f.legal.id,
+      mode: 'USER',
+      createdById: f.owner.id,
+      granteeEmail: f.guest.email,
+    })
+    await expect(
+      resolver.forNode({ nodeId: otherFile.id, user: authUser(f.guest) }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
   })
 })

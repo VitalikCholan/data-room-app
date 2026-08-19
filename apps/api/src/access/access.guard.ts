@@ -11,7 +11,7 @@ import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { AppEnv } from '../config/env'
 import { PrismaService } from '../prisma/prisma.service'
-import { DomainError } from '../common/errors'
+import { DomainError, notFound } from '../common/errors'
 import { AccessResolver, NodeRow } from './access.resolver'
 import { AccessContext } from './access-context'
 
@@ -23,6 +23,18 @@ type RequestWithAccess = Request & {
   access?: AccessContext
   accessNode?: NodeRow
 }
+
+/**
+ * Express parses a repeated query key (`?parentId=a&parentId=b`) to `string[]`, and a
+ * repeated header the same way — neither is a single id. Casting either straight to
+ * `string | undefined` (the previous shape of this code) is a lie the compiler can't
+ * catch: at runtime Prisma receives an array where it expects a scalar and throws a
+ * `PrismaClientValidationError`, which `PrismaExceptionFilter` does not handle,
+ * turning a malformed request into an unhandled 500. Accepting only an actual
+ * non-empty string closes that off — every other shape falls through as "absent".
+ */
+const asId = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.length > 0 ? v : undefined
 
 export const Access = createParamDecorator(
   (_d: unknown, ctx: ExecutionContext): AccessContext =>
@@ -46,8 +58,7 @@ export class AccessGuard implements CanActivate {
 
   async canActivate(execCtx: ExecutionContext): Promise<boolean> {
     const req = execCtx.switchToHttp().getRequest<RequestWithAccess>()
-    const shareToken =
-      (req.headers['x-share-token'] as string | undefined) ?? undefined
+    const shareToken = asId(req.headers['x-share-token'])
     const user = await this.userFromRequest(req)
 
     if (!user && !shareToken) {
@@ -60,14 +71,28 @@ export class AccessGuard implements CanActivate {
     // Precedence matters. A viewer scoped to a subfolder holds no grant on the room
     // root, so resolving by roomId first would 404 them out of their own share.
     // Node id in the route wins, then an explicit parentId, then the room root.
-    const nodeId = (req.params.id ??
-      req.params.nodeId ??
-      (req.query.parentId as string | undefined)) as string | undefined
-    const roomId = req.params.roomId as string | undefined
+    const nodeId =
+      asId(req.params.id) ?? asId(req.params.nodeId) ?? asId(req.query.parentId)
+    const roomId = asId(req.params.roomId)
 
-    const resolved = nodeId
-      ? await this.resolver.forNode({ nodeId, user, shareToken })
-      : await this.resolver.forRoom({ roomId: roomId!, user, shareToken })
+    let resolved: { ctx: AccessContext; node: NodeRow }
+    if (nodeId) {
+      resolved = await this.resolver.forNode({ nodeId, user, shareToken })
+    } else {
+      // No node-shaped id anywhere in the request. Previously this fell through to
+      // `forRoom({ roomId: roomId! })` on blind faith; a request with none of
+      // params.id/nodeId/query.parentId/params.roomId turned `roomId!` into
+      // `forRoom({ roomId: undefined })`, an unhandled 500 rather than a 404.
+      if (!roomId) throw notFound()
+      resolved = await this.resolver.forRoom({ roomId, user, shareToken })
+    }
+
+    // A node id can arrive via `query.parentId` — caller-chosen, unrelated to the
+    // `:roomId` in the route. Nothing reads `params.roomId` today, but the moment a
+    // later route builds a query from `@Param('roomId')` instead of `ctx.roomId`,
+    // a resolved node from a different room than the one named in the URL becomes a
+    // live cross-tenant read. Reject the mismatch here, once, for every future route.
+    if (roomId && resolved.ctx.roomId !== roomId) throw notFound()
 
     if (
       this.reflector.get<boolean>(REQUIRE_OWNER, execCtx.getHandler()) &&

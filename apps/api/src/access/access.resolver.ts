@@ -93,15 +93,9 @@ export class AccessResolver {
     const email = input.user?.email.toLowerCase() ?? null
 
     const grants = await this.prisma.$queryRaw<
-      {
-        id: string
-        role: 'VIEWER'
-        nodeId: string
-        nodePath: string
-        nodeDeletedAt: Date | null
-      }[]
+      { id: string; role: 'VIEWER'; nodeId: string }[]
     >`
-      SELECT s.id, s.role, s."nodeId", n.path AS "nodePath", n."deletedAt" AS "nodeDeletedAt"
+      SELECT s.id, s.role, s."nodeId"
       FROM "Share" s
       JOIN "Node" n ON n.id = s."nodeId"
       WHERE s."nodeId" = ANY(${candidateIds}::text[])
@@ -129,7 +123,10 @@ export class AccessResolver {
     return {
       node,
       ctx: {
-        role: 'VIEWER',
+        // Read off the grant, not hard-coded: the whole point of "deepest grant wins"
+        // is that adding an editor role later is a one-line schema change, not a
+        // remodel — a literal here would silently keep granting VIEWER forever.
+        role: grant.role,
         roomId: node.roomId,
         scopeRootId: scopeRoot.id,
         scopePath: childPath(scopeRoot),
