@@ -6,8 +6,9 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
-    // Wired here so `prisma db seed` works; the script itself arrives in plan 06.
-    seed: 'ts-node src/seed/seed.ts',
+    // No `seed` entry yet — deliberately. Pointing it at a script that does not exist makes
+    // `prisma migrate dev` hang waiting on a seed prompt with no TTY to answer it. Plan 06 adds
+    // the entry in the same task that creates src/seed/seed.ts.
   },
   datasource: { url: env('DATABASE_URL') },
 })
