@@ -79,6 +79,10 @@ model Node {
   @@index([parentId, name, id])
   @@index([roomId, path])
   @@index([roomId, name])
+  // Declared here, not only in raw SQL: Prisma's diff engine treats any index it cannot see in
+  // the schema as drift and proposes dropping it, so an unaware `migrate dev` would silently
+  // delete the trigram index the whole search feature depends on. `map:` must match the SQL name.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "node_name_trgm")
   @@index([status, createdAt])
 }
 
