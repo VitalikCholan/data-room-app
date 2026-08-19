@@ -43,7 +43,7 @@
 | `config/env.ts` | class-validator env schema + typed `AppEnv` |
 | `common/errors.ts` | `DomainError` + error codes |
 | `common/filters/domain-exception.filter.ts` | `DomainError` → HTTP status |
-| `common/filters/prisma-exception.filter.ts` | Prisma `P2002` → 409 |
+| `common/filters/prisma-exception.filter.ts` | Prisma `P2002` → 409, `P2025` → 404 (Task 4) |
 | `common/interceptors/bigint.interceptor.ts` | `BigInt` → `number` in responses |
 | `prisma/prisma.service.ts` | Prisma client lifecycle |
 | `health/health.controller.ts` | `GET /health` |
@@ -228,8 +228,7 @@ git commit -m "chore: pnpm workspace scaffold with local Postgres and MinIO"
 - Create: `apps/api/src/config/env.ts`
 - Create: `apps/api/src/common/errors.ts`
 - Create: `apps/api/src/common/filters/domain-exception.filter.ts`
-- Create: `apps/api/src/common/filters/prisma-exception.filter.ts`
-- Create: `apps/api/src/common/interceptors/bigint.interceptor.ts`
+- Create: `apps/api/src/common/interceptors/bigint.interceptor.ts` (the Prisma filter moved to Task 4 — see below)
 - Create: `apps/api/src/health/health.controller.ts`
 - Test: `apps/api/src/config/env.spec.ts`, `apps/api/src/common/filters/domain-exception.filter.spec.ts`, `apps/api/src/common/interceptors/bigint.interceptor.spec.ts`, `apps/api/test/health.e2e-spec.ts`
 
@@ -656,30 +655,10 @@ export class DomainExceptionFilter implements ExceptionFilter {
 }
 ```
 
-`apps/api/src/common/filters/prisma-exception.filter.ts`:
-```ts
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
-import { Response } from 'express'
-
-/**
- * The partial unique index on (parent_id, lower(name)) is the authority on name
- * collisions, so a pre-check would race. We let the write fail and translate P2002.
- */
-@Catch(Prisma.PrismaClientKnownRequestError)
-export class PrismaExceptionFilter implements ExceptionFilter {
-  catch(error: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
-    const res = host.switchToHttp().getResponse<Response>()
-    if (error.code === 'P2002') {
-      return res.status(409).json({ code: 'NAME_CONFLICT', message: 'An item with this name already exists here' })
-    }
-    if (error.code === 'P2025') {
-      return res.status(404).json({ code: 'NOT_FOUND', message: 'Not found or you do not have access' })
-    }
-    return res.status(500).json({ code: 'INTERNAL', message: 'Unexpected database error' })
-  }
-}
-```
+~~`apps/api/src/common/filters/prisma-exception.filter.ts`~~ — **moved to Task 4.** Under Prisma 7
+the `@Catch()` argument (`Prisma.PrismaClientKnownRequestError`) lives in a generated client that
+no schema has produced yet, and it is evaluated at import time. Task 2 issues no database query,
+so nothing needs the mapping. Task 4 creates the file against a real generated client.
 
 `apps/api/src/common/interceptors/bigint.interceptor.ts`:
 ```ts
@@ -769,7 +748,6 @@ import cookieParser from 'cookie-parser'
 import { AppModule } from './app.module'
 import { buildSwagger } from './swagger'
 import { DomainExceptionFilter } from './common/filters/domain-exception.filter'
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 import { BigIntInterceptor } from './common/interceptors/bigint.interceptor'
 
 async function bootstrap() {
@@ -780,7 +758,8 @@ async function bootstrap() {
     credentials: true,
   })
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }))
-  app.useGlobalFilters(new PrismaExceptionFilter(), new DomainExceptionFilter())
+  // Task 4 adds PrismaExceptionFilter ahead of this one, once a generated client exists.
+  app.useGlobalFilters(new DomainExceptionFilter())
   app.useGlobalInterceptors(new BigIntInterceptor())
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, buildSwagger()))
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0')
@@ -1029,13 +1008,27 @@ git commit -m "chore: deploy api to railway and web to vercel behind an /api rew
 
 **Files:**
 - Create: `apps/api/prisma/schema.prisma`
+- Create: `apps/api/prisma.config.ts`
 - Create: `apps/api/prisma/migrations/<timestamp>_indexes/migration.sql` (hand-written, appended after `prisma migrate dev`)
 - Create: `apps/api/src/prisma/prisma.service.ts`, `apps/api/src/prisma/prisma.module.ts`
+- Create: `apps/api/src/common/filters/prisma-exception.filter.ts` (moved here from Task 2 — it needs the generated client)
+- Modify: `apps/api/src/main.ts` (register the Prisma filter before `DomainExceptionFilter`), `apps/api/src/app.module.ts` (import `PrismaModule`), `apps/api/.gitignore` (ignore the generated client), `apps/api/eslint.config.mjs` (ignore the generated client)
 - Test: `apps/api/test/schema-constraints.e2e-spec.ts`
 
 **Interfaces:**
 - Consumes: `DATABASE_URL`
-- Produces: all Prisma models; `PrismaService` (extends `PrismaClient`, exported by `PrismaModule`); the `node_name_uniq`, `node_path_prefix`, `node_name_trgm` indexes
+- Produces: all Prisma models; `PrismaService` (extends the generated `PrismaClient`, exported by a global `PrismaModule`); the `node_name_uniq`, `node_path_prefix`, `node_name_trgm` indexes; `PrismaExceptionFilter` mapping `P2002` → 409 and `P2025` → 404
+
+### Prisma 7 conventions this project uses
+
+This repo has **Prisma 7.9.1**, which is not the Prisma 5 shape most examples show. Four differences are mandatory, all verified against the installed packages:
+
+1. **`datasource` carries no `url`.** `url = env("DATABASE_URL")` in a schema file is a hard validation error (`P1012`). The URL lives in `prisma.config.ts` for Migrate, and reaches the client through a driver adapter.
+2. **The generator is `prisma-client`, not `prisma-client-js`, and `output` is required.** It emits TypeScript sources (`client.ts`, `models/`, `enums.ts`, `internal/`) into that directory. This project generates into `src/generated/prisma`, inside `src` so that `nest build` emits it into `dist` with everything else.
+3. **Imports come from the generated directory, never from `@prisma/client`.** `PrismaClient`, the model types, and the `Prisma` namespace (`Prisma.sql`, `Prisma.empty`, `Prisma.raw`, `Prisma.PrismaClientKnownRequestError`) all live in `src/generated/prisma/client`; enums live in `src/generated/prisma/enums`.
+4. **The client needs an adapter.** Install `@prisma/adapter-pg` (it is not currently resolvable from `apps/api`, so add it explicitly; add `pg` and `@types/pg` too if the adapter requires them) and pass `new PrismaPg({ connectionString })` to the `PrismaClient` constructor.
+
+The generated directory is build output: add `src/generated/` to `apps/api/.gitignore` and to the `ignores` array in `eslint.config.mjs`. Anyone cloning the repo runs `prisma generate` — which `postinstall` should do, so add `"postinstall": "prisma generate"` to `apps/api/package.json`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1043,10 +1036,11 @@ This test exists because `@@unique([parentId, name, deletedAt])` looks correct a
 
 `apps/api/test/schema-constraints.e2e-spec.ts`:
 ```ts
-import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { randomUUID } from 'node:crypto'
+import { PrismaClient } from '../src/generated/prisma/client'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) })
 
 async function makeRoom() {
   const user = await prisma.user.create({ data: { email: `u-${randomUUID()}@t.io`, name: 'T', passwordHash: 'x' } })
@@ -1103,12 +1097,14 @@ Expected: FAIL — the Prisma client has no `node` model yet.
 `apps/api/prisma/schema.prisma`:
 ```prisma
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
+// No `url` here — Prisma 7 rejects it. Migrate reads it from prisma.config.ts;
+// the client receives it through the driver adapter in PrismaService.
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum NodeType   { FOLDER FILE }
@@ -1212,6 +1208,19 @@ cp .env.example apps/api/.env   # if not already done
 pnpm --filter api prisma migrate dev --name init
 ```
 
+Migrate only finds the database through `prisma.config.ts`, so create it first.
+`apps/api/prisma.config.ts`:
+```ts
+// dotenv first: this file is loaded by the Prisma CLI, which does not read .env for us.
+import 'dotenv/config'
+import { defineConfig, env } from 'prisma/config'
+
+export default defineConfig({
+  schema: 'prisma/schema.prisma',
+  datasource: { url: env('DATABASE_URL') },
+})
+```
+
 Then create a second migration for the three indexes Prisma cannot express:
 
 ```bash
@@ -1238,13 +1247,29 @@ Run: `pnpm --filter api prisma migrate dev`
 
 `apps/api/src/prisma/prisma.service.ts`:
 ```ts
-import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common'
-import { PrismaClient } from '@prisma/client'
+import { INestApplication, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { AppEnv } from '../config/env'
+import { PrismaClient } from '../generated/prisma/client'
 
+/**
+ * Prisma 7 reaches the database through a driver adapter rather than a `url` in the
+ * schema, so the connection string is injected here from validated config — the same
+ * value Migrate reads from prisma.config.ts.
+ */
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  constructor(config: ConfigService<AppEnv, true>) {
+    super({ adapter: new PrismaPg({ connectionString: config.get('DATABASE_URL', { infer: true }) }) })
+  }
+
   async onModuleInit() {
     await this.$connect()
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect()
   }
 
   enableShutdownHooks(app: INestApplication) {
@@ -1252,6 +1277,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 }
 ```
+
+`onModuleDestroy` replaces the plan's earlier disconnect-free version: every e2e spec closes its Nest application, and a client left connected keeps Jest's event loop alive, which shows up as an open-handle warning — and test output must stay pristine.
 
 `apps/api/src/prisma/prisma.module.ts`:
 ```ts
@@ -1265,7 +1292,41 @@ export class PrismaModule {}
 
 Add `PrismaModule` to `AppModule.imports`.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: Add the Prisma exception filter (moved from Task 2)**
+
+This file could not exist in Task 2: its `@Catch()` argument is evaluated at import time, and under Prisma 7 the error class lives in a generated client that no schema had produced yet. Now it exists.
+
+`apps/api/src/common/filters/prisma-exception.filter.ts`:
+```ts
+import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common'
+import { Response } from 'express'
+import { Prisma } from '../../generated/prisma/client'
+
+/**
+ * The partial unique index on (parentId, lower(name)) is the authority on name
+ * collisions, so a pre-check would race. We let the write fail and translate P2002.
+ */
+@Catch(Prisma.PrismaClientKnownRequestError)
+export class PrismaExceptionFilter implements ExceptionFilter {
+  catch(error: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
+    const res = host.switchToHttp().getResponse<Response>()
+    if (error.code === 'P2002') {
+      return res.status(409).json({ code: 'NAME_CONFLICT', message: 'An item with this name already exists here' })
+    }
+    if (error.code === 'P2025') {
+      return res.status(404).json({ code: 'NOT_FOUND', message: 'Not found or you do not have access' })
+    }
+    return res.status(500).json({ code: 'INTERNAL', message: 'Unexpected database error' })
+  }
+}
+```
+
+Register it in `apps/api/src/main.ts` ahead of the domain filter — Nest applies global filters right to left, so the more specific one must come first in the argument list:
+```ts
+app.useGlobalFilters(new PrismaExceptionFilter(), new DomainExceptionFilter())
+```
+
+- [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `pnpm --filter api test:e2e -- schema-constraints`
 Expected: all four PASS. If "allows reusing the name of a deleted sibling" fails, the index is not partial.

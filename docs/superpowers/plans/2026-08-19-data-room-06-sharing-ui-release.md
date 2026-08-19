@@ -25,6 +25,7 @@
 - Presigned PUT TTL 15 minutes. Presigned GET TTL 5 minutes.
 - Share tokens: 32 random bytes, base64url. Store **only** `sha256(token)` in `Share.tokenHash`. Show the token once.
 - Access JWT TTL 15 minutes. Refresh cookie TTL 7 days, `httpOnly; Secure; SameSite=Lax; Path=/`.
+- **Prisma 7**: no `url` in `datasource` (it lives in `prisma.config.ts`); the generated client is imported from `src/generated/prisma/client` (namespace `Prisma`, `PrismaClient`) and `src/generated/prisma/enums` (enums) — never from `@prisma/client`; `PrismaClient` requires a `@prisma/adapter-pg` adapter.
 - Blob keys are always derived server-side as `rooms/{roomId}/nodes/{nodeId}/v{versionNo}`. Never client-supplied.
 - HTTP codes are fixed by spec §4.3: 401 unauthenticated · 404 no access (never 403 — it would confirm existence) · 403 role insufficient · 410 deleted ancestor or revoked link · 409 name conflict or move cycle · 413 over 50 MB · 415 wrong MIME · 422 validation.
 - `Node.status = PENDING` rows are excluded from every listing, for every caller.
@@ -1082,9 +1083,10 @@ git commit -m "feat(web): debounced name search with folder context and scoped g
 `apps/api/test/seed.e2e-spec.ts`:
 ```ts
 import { execFileSync } from 'node:child_process'
-import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../src/generated/prisma/client'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) })
 
 describe('seed', () => {
   afterAll(() => prisma.$disconnect())

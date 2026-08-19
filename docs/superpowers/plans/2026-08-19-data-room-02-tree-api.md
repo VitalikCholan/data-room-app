@@ -25,6 +25,7 @@
 - Presigned PUT TTL 15 minutes. Presigned GET TTL 5 minutes.
 - Share tokens: 32 random bytes, base64url. Store **only** `sha256(token)` in `Share.tokenHash`. Show the token once.
 - Access JWT TTL 15 minutes. Refresh cookie TTL 7 days, `httpOnly; Secure; SameSite=Lax; Path=/`.
+- **Prisma 7**: no `url` in `datasource` (it lives in `prisma.config.ts`); the generated client is imported from `src/generated/prisma/client` (namespace `Prisma`, `PrismaClient`) and `src/generated/prisma/enums` (enums) — never from `@prisma/client`; `PrismaClient` requires a `@prisma/adapter-pg` adapter.
 - Blob keys are always derived server-side as `rooms/{roomId}/nodes/{nodeId}/v{versionNo}`. Never client-supplied.
 - HTTP codes are fixed by spec §4.3: 401 unauthenticated · 404 no access (never 403 — it would confirm existence) · 403 role insufficient · 410 deleted ancestor or revoked link · 409 name conflict or move cycle · 413 over 50 MB · 415 wrong MIME · 422 validation.
 - `Node.status = PENDING` rows are excluded from every listing, for every caller.
@@ -304,12 +305,14 @@ git commit -m "feat(api): pure path, cursor and name-conflict primitives"
 
 `apps/api/test/factories.ts`:
 ```ts
-import { PrismaClient, NodeType } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../src/generated/prisma/client'
+import { NodeType } from '../src/generated/prisma/enums'
 import { randomUUID } from 'node:crypto'
 import * as argon2 from 'argon2'
 import { childPath, ROOT_PATH } from '../src/nodes/node-path'
 
-export const prisma = new PrismaClient()
+export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) })
 
 export async function createUser(password = 'password123') {
   const email = `u-${randomUUID()}@test.io`
@@ -1322,7 +1325,7 @@ Expected: FAIL — 404 on `GET /rooms/:roomId/nodes`.
 `apps/api/src/nodes/nodes.repository.ts`:
 ```ts
 import { Injectable } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '../generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { AccessContext } from '../access/access-context'
 import { NodeRow } from '../access/access.resolver'
@@ -1758,7 +1761,7 @@ Expected: FAIL — `Nest could not find MoveService`.
 `apps/api/src/nodes/move.service.ts`:
 ```ts
 import { Injectable } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '../generated/prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import { AccessContext } from '../access/access-context'
 import { DomainError, notFound } from '../common/errors'
