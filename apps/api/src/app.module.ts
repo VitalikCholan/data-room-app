@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './auth/auth.module'
 import { RoomsModule } from './rooms/rooms.module'
 import { AccessModule } from './access/access.module'
+import { NodesModule } from './nodes/nodes.module'
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AccessModule } from './access/access.module'
     AuthModule,
     RoomsModule,
     AccessModule,
+    NodesModule,
   ],
   controllers: [HealthController],
 })
