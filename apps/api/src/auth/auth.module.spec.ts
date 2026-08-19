@@ -1,19 +1,20 @@
 import { googleEnabled } from '../config/env'
-import { googleProviders } from './auth.module'
+import { googleControllers, googleProviders } from './auth.module'
 
 describe('Google strategy registration', () => {
-  it('is disabled when credentials are absent, so the app still boots', () => {
-    const env = { GOOGLE_CLIENT_ID: undefined, GOOGLE_CLIENT_SECRET: undefined }
-    expect(googleEnabled(env)).toBe(false)
-    expect(googleProviders(env)).toHaveLength(0)
+  it('registers neither the strategy nor the controller when not configured', () => {
+    expect(googleProviders(false)).toHaveLength(0)
+    expect(googleControllers(false)).toHaveLength(0)
   })
 
-  it('is enabled only when both variables are present', () => {
+  it('registers both the strategy and the controller when configured', () => {
+    expect(googleProviders(true)).toHaveLength(1)
+    expect(googleControllers(true)).toHaveLength(1)
+  })
+
+  it('does not consider a half-configured pair as enabled', () => {
     expect(
       googleEnabled({ GOOGLE_CLIENT_ID: 'a', GOOGLE_CLIENT_SECRET: undefined }),
     ).toBe(false)
-    expect(
-      googleProviders({ GOOGLE_CLIENT_ID: 'a', GOOGLE_CLIENT_SECRET: 'b' }),
-    ).toHaveLength(1)
   })
 })
