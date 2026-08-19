@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports: ['5433:5432']
+    environment:
+      POSTGRES_USER: dataroom
+      POSTGRES_PASSWORD: dataroom
+      POSTGRES_DB: dataroom
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U dataroom']
+      interval: 3s
+      retries: 15
+    volumes: ['pgdata:/var/lib/postgresql/data']
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports: ['9000:9000', '9001:9001']
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 3s
+      retries: 15
+    volumes: ['miniodata:/data']
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/data-room &&
+      mc anonymous set none local/data-room &&
+      echo minio-init-done"
+
+volumes:
+  pgdata:
+  miniodata:
