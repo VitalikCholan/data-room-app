@@ -135,7 +135,8 @@ apps/api/openapi.json
 services:
   postgres:
     image: postgres:16-alpine
-    ports: ['5433:5432']
+    # Loopback only: this stack ships default credentials, so it must not leave the machine.
+    ports: ['127.0.0.1:5433:5432']
     environment:
       POSTGRES_USER: dataroom
       POSTGRES_PASSWORD: dataroom
@@ -149,7 +150,7 @@ services:
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
-    ports: ['9000:9000', '9001:9001']
+    ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
