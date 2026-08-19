@@ -1070,6 +1070,7 @@ git commit -m "feat(web): debounced name search with folder context and scoped g
 
 **Files:**
 - Create: `apps/api/src/seed/seed.ts`, `apps/api/src/seed/make-pdf.ts`
+- Modify: `apps/api/prisma.config.ts` — add `migrations.seed: 'ts-node src/seed/seed.ts'`. Task 4 deliberately left it out: a seed entry pointing at a missing script hangs `prisma migrate dev` on a prompt with no TTY. Now the script exists, so wiring it is safe and `prisma db seed` works.
 - Test: `apps/api/test/seed.e2e-spec.ts`
 
 **Interfaces:**

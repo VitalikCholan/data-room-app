@@ -1160,6 +1160,10 @@ model Node {
   @@index([parentId, name, id])
   @@index([roomId, path])
   @@index([roomId, name])
+  // Declared here, not only in raw SQL: Prisma's diff engine treats any index it cannot see in
+  // the schema as drift and proposes dropping it, so an unaware `migrate dev` would silently
+  // delete the trigram index the whole search feature depends on. `map:` must match the SQL name.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "node_name_trgm")
   @@index([status, createdAt])
 }
 
@@ -1219,8 +1223,9 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
-    // Wired here so `prisma db seed` works; the script itself arrives in plan 06.
-    seed: 'ts-node src/seed/seed.ts',
+    // No `seed` entry yet — deliberately. Pointing it at a script that does not exist makes
+    // `prisma migrate dev` hang waiting on a seed prompt with no TTY to answer it. Plan 06 adds
+    // the entry in the same task that creates src/seed/seed.ts.
   },
   datasource: { url: env('DATABASE_URL') },
 })
@@ -1251,6 +1256,14 @@ CREATE INDEX node_name_trgm ON "Node" USING gin (name gin_trgm_ops);
 ```
 
 Run: `pnpm --filter api prisma migrate dev`
+
+**Why only the trigram index is declared in the schema.** Verified with
+`prisma migrate diff --from-config-datasource --to-schema`: with the GIN index declared, the diff
+is empty. The other two raw indexes are invisible to Prisma's comparison rather than treated as
+drift — it cannot represent a partial index at all, so `node_name_uniq`'s `WHERE "deletedAt" IS
+NULL` is ignored, and it does not compare btree operator classes, so `node_path_prefix`'s
+`varchar_pattern_ops` reads as a plain `@@index([roomId, path])` match. Do not try to "fix" those
+two by declaring them; the SQL migration is their only home.
 
 - [ ] **Step 5: Add PrismaService**
 
