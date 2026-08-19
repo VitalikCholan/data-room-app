@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pnpm --filter api exec prisma generate && pnpm --filter api build"
+  },
+  "deploy": {
+    "startCommand": "node apps/api/dist/main.js",
+    "preDeployCommand": "pnpm --filter api exec prisma migrate deploy",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 60,
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
