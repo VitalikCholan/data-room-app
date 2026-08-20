@@ -9,6 +9,7 @@ export function FileBrowser({
   toolbar,
   children,
   onDropOnCrumb,
+  onNavigateCrumb,
   footer,
 }: {
   roomId: string
@@ -16,12 +17,14 @@ export function FileBrowser({
   toolbar: ReactNode
   children: ReactNode
   onDropOnCrumb: (folderId: string, sourceId: string) => void
+  /** Passed straight through to the crumbs; only the guest view supplies it. */
+  onNavigateCrumb?: (folderId: string) => void
   footer?: ReactNode
 }) {
   return (
     <section className="rounded-lg border border-border bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <Breadcrumbs roomId={roomId} crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} />
+        <Breadcrumbs roomId={roomId} crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} onNavigateFolder={onNavigateCrumb} />
       </div>
       {toolbar}
       {children}

@@ -13,10 +13,17 @@ export const Breadcrumbs = memo(function Breadcrumbs({
   roomId,
   crumbs,
   onDropOnCrumb,
+  onNavigateFolder,
 }: {
   roomId: string
   crumbs: Crumb[]
   onDropOnCrumb: (folderId: string, sourceId: string) => void
+  /**
+   * The guest view's in-place navigation. Its ancestors are inside the share, but their
+   * owner routes are not reachable without a session, so those crumbs must be controls
+   * rather than links — which also leaves the guest no url to climb.
+   */
+  onNavigateFolder?: (folderId: string) => void
 }) {
   // A viewer's rows are already `draggable="false"`, so nothing should ever be dragged
   // onto a crumb — this is the second lock on the same door, because a crumb is the one
@@ -32,6 +39,14 @@ export const Breadcrumbs = memo(function Breadcrumbs({
             {index > 0 ? <ChevronRight size={14} className="shrink-0 text-subtle" /> : null}
             {isLast ? (
               <span className="truncate font-medium">{crumb.name}</span>
+            ) : onNavigateFolder ? (
+              <button
+                type="button"
+                className="truncate text-subtle hover:text-accent"
+                onClick={() => onNavigateFolder(crumb.id)}
+              >
+                {crumb.name}
+              </button>
             ) : (
               <Link
                 to={`/rooms/${roomId}/f/${crumb.id}`}

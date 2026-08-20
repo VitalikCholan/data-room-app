@@ -6,6 +6,12 @@ export const queryKeys = {
     sharedWithMe: ['rooms', 'shared-with-me'] as const,
   },
   nodes: {
+    /**
+     * Every node-scoped entry, whatever the room. Used for eviction rather than
+     * invalidation: leaving a share route changes *who* the client is, so everything
+     * fetched under the old identity has to go rather than be refreshed in place.
+     */
+    all: ['nodes'] as const,
     /** Prefix of every listing in one room: a move changes two folders, so both must go stale. */
     roomLists: (roomId: string) => ['nodes', roomId] as const,
     list: (roomId: string, parentId: string | null, sort: string) =>

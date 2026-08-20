@@ -21,6 +21,8 @@ export function NodeTable({
   onDelete,
   onShare,
   onDropOnFolder,
+  onNavigateFolder,
+  onOpenFile,
 }: {
   roomId: string
   items: NodeItem[]
@@ -31,8 +33,8 @@ export function NodeTable({
 } & NodeRowActions) {
   // One stable object for every row, so a memoized NodeRow actually stays memoized.
   const actions = useMemo<NodeRowActions>(
-    () => ({ onRename, onMove, onDelete, onShare, onDropOnFolder }),
-    [onRename, onMove, onDelete, onShare, onDropOnFolder],
+    () => ({ onRename, onMove, onDelete, onShare, onDropOnFolder, onNavigateFolder, onOpenFile }),
+    [onRename, onMove, onDelete, onShare, onDropOnFolder, onNavigateFolder, onOpenFile],
   )
 
   if (isLoading && items.length === 0) return <TableSkeleton rows={6} />

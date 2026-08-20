@@ -53,6 +53,22 @@ describe('NodeTable', () => {
     expect(screen.getByRole('link', { name: 'MSA.pdf' }).getAttribute('href')).toBe('/rooms/r1/file/d1')
   })
 
+  it('navigates in place when the caller supplies the guest callbacks', async () => {
+    const onNavigateFolder = vi.fn()
+    const onOpenFile = vi.fn()
+    renderTable('VIEWER', { onNavigateFolder, onOpenFile })
+
+    // No links at all: every owner route sits behind RequireAuth, and a url is a way up.
+    expect(screen.queryByRole('link', { name: 'Financials' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Financials' }))
+    expect(onNavigateFolder).toHaveBeenCalledWith('f1')
+
+    // The menu's Open must agree with the name cell, or one of them leaves the share.
+    await userEvent.click(screen.getByRole('button', { name: /Actions for MSA.pdf/i }))
+    await userEvent.click(screen.getByText('Open'))
+    expect(onOpenFile).toHaveBeenCalledWith(items[1])
+  })
+
   it('offers row actions to an owner', async () => {
     const onRename = vi.fn()
     renderTable('OWNER', { onRename })

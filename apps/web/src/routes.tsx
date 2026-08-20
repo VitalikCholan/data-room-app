@@ -16,6 +16,12 @@ const FileViewerPage = lazy(() =>
   import('./files/FileViewerPage').then((module) => ({ default: module.FileViewerPage })),
 )
 
+/**
+ * Also split out: a guest never reaches the owner's screens, and an owner never reaches
+ * this one, so neither should pay for the other on first paint.
+ */
+const GuestPage = lazy(() => import('./guest/GuestPage').then((module) => ({ default: module.GuestPage })))
+
 const viewerFallback = <Skeleton className="m-6 h-[70vh]" />
 
 export function AppRoutes() {
@@ -24,6 +30,18 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/auth/callback" element={<GoogleCallbackPage />} />
+      {/*
+        Outside RequireAuth on purpose: the token in the url is the whole credential, and
+        a public link that demanded a sign-in would not be a public link.
+      */}
+      <Route
+        path="/s/:token"
+        element={
+          <Suspense fallback={viewerFallback}>
+            <GuestPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/"
         element={

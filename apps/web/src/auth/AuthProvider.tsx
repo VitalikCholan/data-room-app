@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- useAuth is the companion hook of this provider */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError, onUnauthenticated, setAccessToken, setShareToken } from '../api/client'
+import { api, ApiError, onUnauthenticated, setAccessToken } from '../api/client'
 
 export type SessionUser = { id: string; email: string; name: string }
 type SessionResponse = { user: SessionUser; accessToken: string }
@@ -23,9 +23,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading')
   const navigate = useNavigate()
 
+  /**
+   * The share token is deliberately left alone. `useShareSession` on `/s/:token` is its
+   * only writer, and this runs while that route may be mounted: the refresh at startup
+   * resolves *after* the guest view has begun, so clearing it here used to hand a
+   * signed-in owner the owner's own view of a link they meant to preview — and, worse,
+   * hid it behind a race. A guest who signs in has already left the share route, whose
+   * cleanup cleared the token on the way out.
+   */
   const adoptSession = useCallback((session: SessionResponse) => {
     setAccessToken(session.accessToken)
-    setShareToken(null)
     setUser(session.user)
     setStatus('authenticated')
   }, [])
@@ -86,3 +93,10 @@ export function useAuth() {
   if (!value) throw new Error('useAuth must be used inside AuthProvider')
   return value
 }
+
+/**
+ * For the one screen that is reachable without a session: the guest route renders
+ * whether or not a provider is above it, and only wants to know whether somebody is
+ * signed in so it can say so.
+ */
+export const useOptionalAuth = () => useContext(AuthContext)

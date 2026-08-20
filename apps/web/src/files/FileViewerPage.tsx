@@ -1,9 +1,8 @@
-import { useEffect, useMemo } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { AppShell } from '../components/AppShell'
 import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
-import { useFileContent } from './hooks'
+import { useDocumentObjectUrl } from './hooks'
 
 /** Passed by the row that linked here. Opening the url directly simply has no name yet. */
 type ViewerNavigationState = { name?: string } | null
@@ -20,16 +19,8 @@ export function FileViewerPage() {
   const { roomId = '', nodeId = '' } = useParams()
   const state = useLocation().state as ViewerNavigationState
   const name = state?.name ?? 'Document'
-  const content = useFileContent(nodeId)
-
-  // Derived from the blob during render rather than pushed into state by an effect: the
-  // url is a pure function of the bytes. The effect exists only to release it, because
-  // an object url left behind pins the whole PDF in memory for the rest of the session.
-  const objectUrl = useMemo(() => (content.data ? URL.createObjectURL(content.data) : null), [content.data])
-  useEffect(() => {
-    if (!objectUrl) return
-    return () => URL.revokeObjectURL(objectUrl)
-  }, [objectUrl])
+  const content = useDocumentObjectUrl(nodeId)
+  const objectUrl = content.objectUrl
 
   const backToRoom = (
     <Link to={`/rooms/${roomId}`} className="text-sm text-accent hover:underline">
