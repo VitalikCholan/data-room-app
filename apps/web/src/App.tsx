@@ -1,23 +1,33 @@
-import { useEffect, useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter } from 'react-router-dom'
+import { Toaster } from 'sonner'
+import { AuthProvider } from './auth/AuthProvider'
+import { AppRoutes } from './routes'
 
-const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '/api'
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 15_000,
+      refetchOnWindowFocus: false,
+      // 404/403/410 are answers, not failures — retrying them just delays the message.
+      retry: (failureCount, error) => {
+        const status = (error as { status?: number }).status
+        if (status && status < 500) return false
+        return failureCount < 2
+      },
+    },
+  },
+})
 
-// Placeholder shell: its only job is to prove the /api rewrite reaches the
-// backend. Replaced by the real app in Task 19.
 export default function App() {
-  const [status, setStatus] = useState('checking…')
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/health`)
-      .then((res) => res.json() as Promise<{ status: string }>)
-      .then((body) => setStatus(body.status))
-      .catch((err: unknown) => setStatus(`error: ${String(err)}`))
-  }, [])
-
   return (
-    <main style={{ fontFamily: 'system-ui', padding: '2rem' }}>
-      <h1>Data Room</h1>
-      <p>api: {status}</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppRoutes />
+          <Toaster position="bottom-right" richColors />
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
