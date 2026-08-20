@@ -14,6 +14,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **[VOID — RULING 34, 2026-08-20] The cut below was REVERSED by the user; version history shipped after all.
+> The block is kept only as a record of what was decided when. Do not implement from it.**
+>
 > **SCOPE CUT (Ruling 32, carried from plan 03 — extra credit is out).** The API has no
 > version-history or search endpoints, so the task text below is amended:
 > - **Task 25** ships the document viewer ONLY. No version-history panel, no restore control,

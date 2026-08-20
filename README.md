@@ -59,13 +59,13 @@ Tests:
 
 ```bash
 pnpm --filter api test                        # 75 unit tests, no database needed
-pnpm --filter web test                        # 125 component/hook tests (vitest, jsdom)
+pnpm --filter web test                        # 162 component/hook tests (vitest, jsdom)
 
 # The e2e suite runs against its own database so it can truncate between spec files.
 docker compose exec -T postgres createdb -U dataroom dataroom_test
 DATABASE_URL="postgresql://dataroom:dataroom@localhost:5433/dataroom_test?schema=public" \
   pnpm --filter api exec prisma migrate deploy
-pnpm --filter api test:e2e                    # 125 e2e tests against Postgres + MinIO
+pnpm --filter api test:e2e                    # 154 e2e tests against Postgres + MinIO
 ```
 
 `pnpm infra:down` stops the containers and drops their volumes. CI
@@ -267,20 +267,27 @@ already resolve deepest-first. Adding `EDITOR` is:
 No change to the tree, to `path`, to any listing query, or to the access resolver's shape.
 Per-node roles are the same mechanism: a grant lives on a node, and the deepest one wins.
 
-## What is deliberately not built
+## Extra credit: both built
 
-Two features from the extra-credit list were cut for **schedule**, not because the design
-resists them. Both are pure re-adds — the schema still carries what they need:
+Both extra-credit features are implemented, and each one is where the interesting
+constraints turned out to be.
 
-- **File versioning beyond a single version.** Upload of an existing name offers only
-  "keep both" (an auto-suffixed name), never "add a version", and there is no version
-  history or restore UI. The `FileVersion` table, its `(nodeId, versionNo)` unique
-  constraint, `Node.currentVersionId` and the per-version `blobKey` scheme
-  (`.../v{versionNo}`) are all still in place and already carry `versionNo = 1`, so
-  re-adding it is a second `FileVersion` row plus a pointer update — no migration.
-- **Filename search.** There is no search endpoint and no search UI. `pg_trgm` and the
-  `node_name_trgm` GIN index remain in the schema and in the database, so search is a
-  query against an index that already exists.
+- **File versioning.** Uploading a name that already exists offers "add a version"
+  alongside "keep both". A new version is a new `FileVersion` row at `versionNo + 1`
+  with its own blob key (`.../v{versionNo}`); the node stays `ACTIVE` on its current
+  version until `confirm` succeeds, so an in-flight v2 never blanks a live v1. History
+  is **append-only**: restoring an older version copies it *forward* under a new number
+  rather than moving the pointer back, which is what lets the orphan sweep recognise an
+  abandoned re-upload — a version numbered above `currentVersionId` with no confirmed
+  bytes can only be one. Restore also copies the stored ETag, without which every
+  restored file would fail the integrity check below and answer 410.
+- **Filename search.** `GET /rooms/:roomId/search` is a single query over the
+  `node_name_trgm` GIN index, with the caller's scope applied **in SQL** — a share
+  recipient's search cannot reach outside the subtree they were given, and that is
+  tested at the service level, not only over HTTP, because an HTTP-only test would be
+  satisfied by the access guard and would prove nothing about the query. `LIKE`
+  metacharacters are escaped, so a query for `20%` matches the literal string.
+  Pagination is keyset, inside the query, so `LIMIT` stays honest.
 
 Also intentionally absent, per spec: no trash or restore UI (soft delete is a tombstone
 the API respects, not a user-facing bin), no audit log, no OS folder upload, no editor role.

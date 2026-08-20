@@ -12,6 +12,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **[VOID — RULING 34, 2026-08-20] The cut below was REVERSED by the user; versioning and search shipped after all.
+> The block is kept only as a record of what was decided when. Do not implement from it.**
+>
 > **SCOPE CUT (Ruling 32, 2026-08-20, approved by user):** Extra credit is out of scope. This changes the tasks below as follows — the task text is kept for reference, but implementation follows this list:
 > - **Task 14:** no `NEW_VERSION` conflict strategy. `onConflict` accepts only `KEEP_BOTH`. A name conflict without a strategy is still `409 NAME_CONFLICT`. Every file has exactly one `FileVersion` row (versionNo 1); `presignNewVersion` is not built. The `FileVersion` table stays — it holds the blobKey and makes versioning a pure re-add later.
 > - **Task 15:** no `GET /nodes/:id/versions`, no restore endpoint, no `VersionsService.list/restore`. Keep: `GET /nodes/:id/content` (302 to presigned GET) and the PENDING-node orphan sweep. The abandoned-version half of the sweep is dropped (no v2+ can exist).

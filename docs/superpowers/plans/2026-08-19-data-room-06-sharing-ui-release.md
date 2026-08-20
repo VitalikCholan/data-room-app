@@ -14,6 +14,9 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **[VOID — RULING 34, 2026-08-20] The cut below was REVERSED by the user; search shipped after all.
+> The block is kept only as a record of what was decided when. Do not implement from it.**
+>
 > **SCOPE CUT (Ruling 32, user-approved).** Extra credit is out of scope, so:
 > - **Task 28 (Search) is DROPPED ENTIRELY.** There is no `GET /rooms/:roomId/search` endpoint —
 >   it was cut from plan 03. Build no `src/search/**`, no `SearchInput`, no `useSearch`, no tests.
