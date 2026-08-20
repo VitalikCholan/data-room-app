@@ -1,7 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { Breadcrumbs } from './Breadcrumbs'
+
+const nodeDrag = (sourceId: string) => ({
+  dataTransfer: { types: ['application/x-node-id'], getData: () => sourceId, dropEffect: 'none' },
+})
 
 describe('Breadcrumbs', () => {
   const crumbs = [
@@ -19,6 +23,28 @@ describe('Breadcrumbs', () => {
     expect(screen.getByRole('link', { name: 'Legal' })).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Contracts' })).toBeNull()
     expect(screen.getByText('Contracts')).toBeTruthy()
+  })
+
+  it('moves a dropped row into the crumb it was dropped on', () => {
+    const onDropOnCrumb = vi.fn()
+    render(
+      <MemoryRouter>
+        <Breadcrumbs roomId="r1" crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} />
+      </MemoryRouter>,
+    )
+    fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), nodeDrag('doc'))
+    expect(onDropOnCrumb).toHaveBeenCalledWith('legal', 'doc')
+  })
+
+  it('ignores an OS file drop on a crumb', () => {
+    const onDropOnCrumb = vi.fn()
+    render(
+      <MemoryRouter>
+        <Breadcrumbs roomId="r1" crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} />
+      </MemoryRouter>,
+    )
+    fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), { dataTransfer: { types: ['Files'], getData: () => '' } })
+    expect(onDropOnCrumb).not.toHaveBeenCalled()
   })
 
   it('renders a single crumb without any link', () => {

@@ -12,6 +12,7 @@ import {
 } from '../components/ui/dropdown-menu'
 import { cn } from '../lib/cn'
 import { formatBytes, formatRelativeDate } from '../lib/format'
+import { NODE_DRAG_TYPE } from './dragTypes'
 import type { NodeItem } from './hooks/useNodeList'
 
 export type NodeRowActions = {
@@ -47,10 +48,10 @@ export const NodeRow = memo(function NodeRow({
         isDropTarget && 'bg-accent/10 ring-1 ring-inset ring-accent',
       )}
       draggable={isOwner}
-      onDragStart={(event) => event.dataTransfer.setData('application/x-node-id', node.id)}
+      onDragStart={(event) => event.dataTransfer.setData(NODE_DRAG_TYPE, node.id)}
       onDragOver={(event) => {
         if (!isOwner || node.type !== 'FOLDER') return
-        if (!event.dataTransfer.types.includes('application/x-node-id')) return
+        if (!event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
         event.preventDefault()
         event.dataTransfer.dropEffect = 'move'
         setIsDropTarget(true)
@@ -59,9 +60,12 @@ export const NodeRow = memo(function NodeRow({
       onDrop={(event) => {
         setIsDropTarget(false)
         if (!isOwner || node.type !== 'FOLDER') return
+        // Checked before preventDefault and stopPropagation: an OS file drop must keep
+        // bubbling to the upload drop zone, which is the only thing that handles files.
+        if (!event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
         event.preventDefault()
         event.stopPropagation()
-        const sourceId = event.dataTransfer.getData('application/x-node-id')
+        const sourceId = event.dataTransfer.getData(NODE_DRAG_TYPE)
         // Dropping a folder onto itself is the one cycle the UI can rule out for free.
         if (sourceId && sourceId !== node.id) actions.onDropOnFolder(sourceId, node.id)
       }}

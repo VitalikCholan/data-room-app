@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -10,6 +10,11 @@ const items: NodeItem[] = [
   { id: 'f1', type: 'FOLDER', name: 'Financials', sizeBytes: null, updatedAt: new Date().toISOString(), currentVersionId: null },
   { id: 'd1', type: 'FILE', name: 'MSA.pdf', sizeBytes: 2048, updatedAt: new Date().toISOString(), currentVersionId: 'v1' },
 ]
+
+/** The only payload a row-to-folder move ever carries. OS file drops advertise 'Files'. */
+const nodeDrag = (sourceId: string) => ({
+  dataTransfer: { types: ['application/x-node-id'], getData: () => sourceId, dropEffect: 'none' },
+})
 
 function renderTable(role: 'OWNER' | 'VIEWER', props: Partial<React.ComponentProps<typeof NodeTable>> = {}) {
   return render(
@@ -66,6 +71,39 @@ describe('NodeTable', () => {
   it('shows the loading skeleton instead of an empty state while fetching', () => {
     renderTable('OWNER', { items: [], isLoading: true })
     expect(screen.queryByText(/Drop PDFs/i)).toBeNull()
+  })
+
+  it('moves a dragged row into the folder it is dropped on', () => {
+    const onDropOnFolder = vi.fn()
+    renderTable('OWNER', { onDropOnFolder })
+    fireEvent.drop(screen.getByText('Financials').closest('div')!, nodeDrag('d1'))
+    expect(onDropOnFolder).toHaveBeenCalledWith('d1', 'f1')
+  })
+
+  it('ignores a folder dropped on itself and a row dropped on a file', () => {
+    const onDropOnFolder = vi.fn()
+    renderTable('OWNER', { onDropOnFolder })
+    fireEvent.drop(screen.getByText('Financials').closest('div')!, nodeDrag('f1'))
+    fireEvent.drop(screen.getByText('MSA.pdf').closest('div')!, nodeDrag('f1'))
+    expect(onDropOnFolder).not.toHaveBeenCalled()
+  })
+
+  it('lets an OS file drop pass through a row to the upload drop zone', () => {
+    const onDropOnFolder = vi.fn()
+    renderTable('OWNER', { onDropOnFolder })
+    const escaped: boolean[] = []
+    document.addEventListener('drop', (event) => escaped.push(event.defaultPrevented), { once: true })
+    fireEvent.drop(screen.getByText('Financials').closest('div')!, {
+      dataTransfer: { types: ['Files'], getData: () => '' },
+    })
+    expect(onDropOnFolder).not.toHaveBeenCalled()
+    // Neither consumed nor cancelled: the drop zone above still gets its turn.
+    expect(escaped).toEqual([false])
+  })
+
+  it('never lets a viewer drag a row', () => {
+    renderTable('VIEWER')
+    expect(screen.getByText('Financials').closest('div')!.getAttribute('draggable')).toBe('false')
   })
 
   it('shows a load-more control when another page exists', async () => {

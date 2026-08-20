@@ -15,7 +15,7 @@ export function FileBrowser({
   crumbs: Crumb[]
   toolbar: ReactNode
   children: ReactNode
-  onDropOnCrumb: (folderId: string) => void
+  onDropOnCrumb: (folderId: string, sourceId: string) => void
   footer?: ReactNode
 }) {
   return (
