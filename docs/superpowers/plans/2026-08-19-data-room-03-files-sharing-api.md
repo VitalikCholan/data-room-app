@@ -12,6 +12,12 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **SCOPE CUT (Ruling 32, 2026-08-20, approved by user):** Extra credit is out of scope. This changes the tasks below as follows — the task text is kept for reference, but implementation follows this list:
+> - **Task 14:** no `NEW_VERSION` conflict strategy. `onConflict` accepts only `KEEP_BOTH`. A name conflict without a strategy is still `409 NAME_CONFLICT`. Every file has exactly one `FileVersion` row (versionNo 1); `presignNewVersion` is not built. The `FileVersion` table stays — it holds the blobKey and makes versioning a pure re-add later.
+> - **Task 15:** no `GET /nodes/:id/versions`, no restore endpoint, no `VersionsService.list/restore`. Keep: `GET /nodes/:id/content` (302 to presigned GET) and the PENDING-node orphan sweep. The abandoned-version half of the sweep is dropped (no v2+ can exist).
+> - **Task 17:** no search service/controller/module and no search tests. Keep only `openapi.ts` emission and the whole-suite gate. The `pg_trgm` GIN index stays in the schema (harmless, already migrated).
+> - Batching: Task 13+14 = one dispatch; Task 15+16+17 = one dispatch. Deep review only on Task 14 confirm path (Ruling 23).
+
 **Prerequisite:** Plan 02 complete — `AccessResolver`, `AccessGuard`, `NodesRepository`, `RollupService` all in place.
 
 **Done when:** A PDF can be uploaded from a browser through a presigned URL, viewed, re-uploaded as a new version, restored, searched for by name, and shared by public link or by email — with revocation working and `openapi.json` emitted for the frontend.
