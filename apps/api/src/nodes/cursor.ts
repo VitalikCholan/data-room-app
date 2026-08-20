@@ -1,0 +1,28 @@
+import { DomainError } from '../common/errors'
+
+// Escaped, not a literal control character: a raw NUL would make the file binary to grep.
+const SEP = '\u0000'
+
+/**
+ * Keyset pagination cursor over the (sortKey, id) ordering of a single folder.
+ * `key` holds the stringified sort column - a name, an ISO timestamp, or a
+ * zero-padded size - so every sort mode shares one cursor shape.
+ */
+export function encodeCursor(cursor: { key: string; id: string }): string {
+  return Buffer.from(`${cursor.key}${SEP}${cursor.id}`, 'utf8').toString(
+    'base64url',
+  )
+}
+
+export function decodeCursor(raw: string): { key: string; id: string } {
+  let decoded: string
+  try {
+    decoded = Buffer.from(raw, 'base64url').toString('utf8')
+  } catch {
+    throw new DomainError('VALIDATION', 'Malformed cursor')
+  }
+  const idx = decoded.lastIndexOf(SEP)
+  if (idx <= 0 || idx === decoded.length - 1)
+    throw new DomainError('VALIDATION', 'Malformed cursor')
+  return { key: decoded.slice(0, idx), id: decoded.slice(idx + 1) }
+}

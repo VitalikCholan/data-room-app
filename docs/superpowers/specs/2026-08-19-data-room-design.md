@@ -92,10 +92,14 @@ monorepo root directory natively:
 | | Root directory | Build | Watch paths |
 |---|---|---|---|
 | Vercel | `apps/web` | `pnpm --filter web build`, install at repo root | `apps/web/**` |
-| Railway | `apps/api` | Nixpacks; release command `prisma migrate deploy` | `apps/api/**` |
+| Railway | repo root | Nixpacks; `pnpm --filter api exec prisma generate && pnpm --filter api build`; pre-deploy `prisma migrate deploy` | `apps/api/**` |
 
 `vercel.json` exists only for the `/api/*` rewrite (§7.1). CI is one workflow with an `api`
 job (Postgres + MinIO service containers) and a `web` job.
+
+Railway builds from the repo **root**, not `apps/api`: this is a shared pnpm workspace with a
+single lockfile at the top, and a root directory of `apps/api` hides that lockfile from the
+installer. Verified in deployment.
 
 ---
 
@@ -169,7 +173,7 @@ model Share {
   role         Role      @default(VIEWER)
   tokenHash    String?   @unique               // sha256(token); the token itself is never stored
   granteeEmail String?                         // lower-cased
-  granteeId    String?                         // filled on first access, for attribution
+  granteeId    String?                         // set explicitly (seed, future audit); never written by the read path
   createdById  String
   createdAt    DateTime  @default(now())
   revokedAt    DateTime?
@@ -252,9 +256,16 @@ names across different rooms, which is the desired semantics.
 ### 3.6 Invitations by email
 
 `granteeEmail` is the grant key, so a person who has not registered yet can be invited;
-the access check resolves through `User.email` (unique, lower-cased). `granteeId` is
-filled on first successful access for attribution. This is a deliberate choice, not an
-omission.
+the access check resolves through `User.email` (unique, lower-cased). This is a deliberate
+choice, not an omission.
+
+`granteeId` stays null unless something writes it deliberately. The original design filled it
+on first successful access, and that was wrong: it puts a write inside the single read-path
+authorization decision, doubling round trips on every viewer read and swallowing failures to
+avoid breaking reads. Attribution belongs in an append-only audit event on the share path — the
+`Share` row is the grant, not the log — so the column stays available for that and for the seed,
+which sets it explicitly. Recorded as a trade-off rather than left as a promise the code does
+not keep.
 
 ---
 

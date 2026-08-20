@@ -1320,6 +1320,34 @@ describe('node listing', () => {
 Run: `pnpm --filter api test:e2e -- nodes-list`
 Expected: FAIL — 404 on `GET /rooms/:roomId/nodes`.
 
+### The scope rule for every method in this task
+
+Task 9's review proved this the hard way: forgetting the scope predicate is a **silent disclosure**
+— not a compile error, not a test failure. The compiler forces each method to *accept* an
+`AccessContext`; nothing connects that parameter to the SQL. Delete the scope clause from a query
+and everything stays green while the query returns another tenant's rows.
+
+Two rules, both mandatory here:
+
+1. **Never hand-write the scope clause.** Use the exported predicate from `access-context.ts`:
+   ```ts
+   AND ${withinScope(ctx)}
+   ```
+   It expands to `("id" = ${ctx.scopeRootId} OR path LIKE ${ctx.scopePath} || '%')`. The `id =`
+   half is not redundant: `scopePath` is `childPath(scopeRoot)`, so the prefix test **never matches
+   the scope root row itself**. Hand-rolling just the `LIKE` produces a mystery 404 on the very
+   folder a guest was shared.
+
+2. **One cross-scope negative assertion per method.** For every repository or service method added
+   here, add an e2e case where a viewer scoped to `Legal/` calls it against `Financials/` and gets
+   nothing — empty list, or 404, whichever the method's contract says. A method with no such
+   assertion is a method whose scoping is unproven, and Task 9 demonstrated that plausible-looking
+   suites miss exactly this.
+
+Also note: `AccessContext` is per-**node**, not per-caller. The same viewer holding grants on both
+`/` and `/Legal/Contracts/` gets a different `scopePath` depending on which node they asked for, so
+a context must never be cached or reused across requests.
+
 - [ ] **Step 3: Implement the repository**
 
 `apps/api/src/nodes/nodes.repository.ts`:
@@ -1611,6 +1639,11 @@ import { RollupService } from './rollup.service'
   exports: [NodesRepository, NodesService, RollupService],
 })
 export class NodesModule {}
+```
+
+`NodesModule` takes ownership of `RollupService`. It lives in `src/nodes/` and was provided by `RoomsModule` in Task 8 only because this module did not exist yet. Move it now: drop `RollupService` from `RoomsModule`'s `providers` and `exports`, and give `RoomsModule` `imports: [NodesModule]`. Leaving both modules providing it would give each its own instance, and the dependency direction would keep pointing from rooms into nodes' file tree while the module graph claimed the opposite.
+
+```ts
 ```
 
 Add `NodesModule` to `AppModule.imports`.
