@@ -3,6 +3,8 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from './auth/AuthProvider'
 import { AppRoutes } from './routes'
+import { ConflictDialog } from './uploads/ConflictDialog'
+import { UploadQueuePanel } from './uploads/UploadQueuePanel'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +27,13 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <AppRoutes />
+          {/*
+            Outside the routes, like the store itself: an upload started in one folder
+            keeps running — and keeps its panel and its one conflict prompt — while the
+            user navigates anywhere else.
+          */}
+          <UploadQueuePanel />
+          <ConflictDialog />
           <Toaster position="bottom-right" richColors />
         </AuthProvider>
       </BrowserRouter>

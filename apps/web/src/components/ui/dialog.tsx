@@ -11,6 +11,7 @@ export function Dialog({
   children,
   footer,
   className,
+  onOpenAutoFocus,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -19,12 +20,21 @@ export function Dialog({
   children?: ReactNode
   footer?: ReactNode
   className?: string
+  /**
+   * Radix focuses the first tabbable element on open — the close button, since it comes
+   * first in this markup. A dialog whose whole purpose is one text field passes a handler
+   * here, calls `preventDefault()`, and focuses the field itself. Content mounts in a
+   * later commit than the caller's own effects, so this event is the only hook that is
+   * guaranteed to run with the field already in the DOM.
+   */
+  onOpenAutoFocus?: (event: Event) => void
 }) {
   return (
     <Primitive.Root open={open} onOpenChange={onOpenChange}>
       <Primitive.Portal>
         <Primitive.Overlay className="fixed inset-0 bg-ink/30 backdrop-blur-[1px]" />
         <Primitive.Content
+          onOpenAutoFocus={onOpenAutoFocus}
           className={cn(
             'fixed left-1/2 top-1/2 w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-5 shadow-panel',
             className,

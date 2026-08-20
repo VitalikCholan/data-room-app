@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, getAccessToken, setAccessToken, setShareToken } from './client'
+import { ApiError, apiRequest, fetchBinary, getAccessToken, setAccessToken, setShareToken } from './client'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -127,5 +127,58 @@ describe('apiRequest', () => {
   it('returns undefined for a 204 rather than throwing on empty json', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
     await expect(apiRequest('DELETE', '/shares/s1')).resolves.toBeUndefined()
+  })
+})
+
+describe('fetchBinary', () => {
+  beforeEach(() => {
+    setAccessToken(null)
+    setShareToken(null)
+    vi.restoreAllMocks()
+  })
+
+  it('returns the bytes and never sends credentials across the redirect to the bucket', async () => {
+    setAccessToken('tok-1')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(new Blob(['%PDF']), { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const blob = await fetchBinary('/nodes/d1/content')
+    expect(blob.type).toBe('application/pdf')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.credentials).toBe('same-origin')
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
+  })
+
+  it('types the blob itself and never from the response header', async () => {
+    // The bytes are attacker-controlled by design: a presigned PUT declares
+    // application/pdf and can send anything. If the type came from the header, an
+    // object url made from this blob would load HTML as a same-origin document with
+    // access to our DOM, our session and window.parent.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<script>parent.document.cookie</script>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    )
+
+    const blob = await fetchBinary('/nodes/d1/content')
+    expect(blob.type).toBe('application/pdf')
+  })
+
+  it('throws the withdrawn-content error rather than an empty blob', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ code: 'GONE', message: 'File content is no longer available' }, 410)),
+    )
+    await expect(fetchBinary('/nodes/d1/content')).rejects.toMatchObject({ status: 410, code: 'GONE' })
   })
 })
