@@ -15,9 +15,12 @@ jobs:
       # No `version:` input — pnpm/action-setup reads the `packageManager` field in
       # package.json, so CI can never drift from the version developers use.
       - uses: pnpm/action-setup@v4
+      # Node 24, not 20: jsdom 30 loads undici 8, which calls
+      # worker_threads.markAsUncloneable at import time. Node 20 does not have it, so the
+      # whole web suite dies with "markAsUncloneable is not a function" before any test runs.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       # postinstall runs `prisma generate`, which needs no database.
@@ -108,7 +111,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
