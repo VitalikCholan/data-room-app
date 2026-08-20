@@ -24,8 +24,15 @@ export const queryKeys = {
     folderChildren: (roomId: string, parentId: string) => ['nodes', roomId, parentId, 'folder-children'] as const,
     rollup: (nodeId: string) => ['nodes', nodeId, 'rollup'] as const,
     deletionPreview: (nodeId: string) => ['nodes', nodeId, 'deletion-preview'] as const,
-    /** The viewer's document bytes. Short-lived: the presigned GET behind it lives 5 minutes. */
-    content: (nodeId: string) => ['nodes', nodeId, 'content'] as const,
+    /**
+     * The viewer's document bytes. Short-lived: the presigned GET behind it lives 5
+     * minutes. Keyed on the version too, so reading an older one does not evict the
+     * current bytes and going back to them is free.
+     */
+    content: (nodeId: string, versionId: string | null = null) =>
+      ['nodes', nodeId, 'content', versionId ?? 'current'] as const,
+    /** Every version's bytes for one file: what a restore makes stale in one stroke. */
+    contentAll: (nodeId: string) => ['nodes', nodeId, 'content'] as const,
     versions: (nodeId: string) => ['nodes', nodeId, 'versions'] as const,
     shares: (nodeId: string) => ['nodes', nodeId, 'shares'] as const,
   },
