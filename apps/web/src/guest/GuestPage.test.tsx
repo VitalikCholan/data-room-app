@@ -243,18 +243,16 @@ describe('GuestPage', () => {
   it('renders a shared file itself, without ever asking for a folder listing', async () => {
     Object.assign(URL, { createObjectURL: () => 'blob:pdf', revokeObjectURL: () => undefined })
     const fileBootstrap = { ...bootstrap, node: { id: 'd1', name: 'MSA.pdf', type: 'FILE' } }
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string) =>
-        Promise.resolve(
-          url.includes('/shared/')
-            ? json(fileBootstrap)
-            : new Response(new Blob(['%PDF-1.7']), {
-                status: 200,
-                headers: { 'Content-Type': 'application/pdf' },
-              }),
-        ),
-      )
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/shared/')
+          ? json(fileBootstrap)
+          : new Response(new Blob(['%PDF-1.7']), {
+              status: 200,
+              headers: { 'Content-Type': 'application/pdf' },
+            }),
+      ),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     renderGuest()

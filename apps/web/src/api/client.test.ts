@@ -167,14 +167,12 @@ describe('fetchBinary', () => {
 
   it('returns the bytes and never sends credentials across the redirect to the bucket', async () => {
     setAccessToken('tok-1')
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(new Blob(['%PDF']), {
-          status: 200,
-          headers: { 'Content-Type': 'application/pdf' },
-        }),
-      )
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Blob(['%PDF']), {
+        status: 200,
+        headers: { 'Content-Type': 'application/pdf' },
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const blob = await fetchBinary('/nodes/d1/content')

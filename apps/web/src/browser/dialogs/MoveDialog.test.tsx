@@ -114,21 +114,19 @@ describe('MoveDialog', () => {
   })
 
   it('shows the 409 name-conflict message instead of a raw code', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((_url: string, init?: RequestInit) =>
-        Promise.resolve(
-          init?.method === 'POST'
-            ? json(
-                {
-                  code: 'NAME_CONFLICT',
-                  message: '"Legal" already exists in the destination folder',
-                },
-                409,
-              )
-            : json(rootListing),
-        ),
-      )
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'POST'
+          ? json(
+              {
+                code: 'NAME_CONFLICT',
+                message: '"Legal" already exists in the destination folder',
+              },
+              409,
+            )
+          : json(rootListing),
+      ),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const { onClose } = renderDialog()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Financials' })).toBeTruthy())
