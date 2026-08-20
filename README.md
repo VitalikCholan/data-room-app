@@ -13,6 +13,24 @@ room exists. Revocation is immediate.
   package: the frontend's only knowledge of the API is `apps/web/src/api/schema.d.ts`,
   generated from the emitted `openapi.json`.
 
+## What is built
+
+| Requirement | Where |
+| --- | --- |
+| Email/password auth, and Google | `/login`, `/register`; Google button appears when the API has credentials |
+| Folder create, rename, move, delete — with breadcrumbs | Room browser; breadcrumbs are clickable and double as drop targets |
+| Delete warns what goes with it | Counts the whole subtree — folders, files, bytes, and how many live shares stop working |
+| Upload PDFs: many at once, drag-and-drop, per-file progress | Drop anywhere in the browser; three concurrent uploads, one progress bar per file, one conflict prompt per batch |
+| View a file in the browser | `GET /nodes/:id/content` → 302 to a 5-minute presigned URL |
+| Rename / move / delete a file | Row menu, or drag a row onto a folder or a breadcrumb |
+| Share a room, folder or file — public link or by email, read-only, revocable | Share dialog; guests land in a scoped browser with no way up |
+| **Extra credit** — file versioning with history and restore | "Add a version" on a name conflict; history panel in the viewer |
+| **Extra credit** — search by filename | Search box in the browser, scoped to the caller's subtree |
+
+Deliberately absent, per the spec: no trash or restore UI (soft delete is a tombstone the
+API respects, not a user-facing bin), no audit log, no OS folder upload, no editor role —
+though the model already carries roles, see [How it scales](#how-it-scales).
+
 ## Live
 
 | | |
@@ -135,7 +153,76 @@ the redirect into the bucket.
 
 ## Data model
 
-See **[docs/erd.md](docs/erd.md)** for the full diagram and the index table.
+```mermaid
+erDiagram
+    User ||--o{ DataRoom : owns
+    DataRoom ||--|| Node : "root node"
+    DataRoom ||--o{ Node : contains
+    Node ||--o{ Node : "parent of"
+    Node ||--o{ FileVersion : "has versions"
+    Node ||--o{ Share : "granted through"
+
+    User {
+        uuid id PK
+        string email UK "always stored lower-cased"
+        string passwordHash "null for a Google-only account"
+        string googleId UK "null until Google is linked"
+        string name
+        datetime createdAt
+    }
+
+    DataRoom {
+        uuid id PK
+        uuid ownerId FK "-> User.id, cascade"
+        string name
+        uuid rootNodeId UK "-> Node.id, no FK: written in the same transaction as the node"
+        datetime createdAt
+    }
+
+    Node {
+        uuid id PK
+        uuid roomId FK "-> DataRoom.id, cascade"
+        uuid parentId FK "-> Node.id, cascade; null only on a root node"
+        enum type "FOLDER | FILE"
+        string name
+        string path "materialized ancestors: '/' at the root, '/rootId/folderId/' below"
+        enum status "PENDING until an upload is confirmed, then ACTIVE"
+        uuid currentVersionId UK "-> FileVersion.id, no FK: would be circular"
+        bigint sizeBytes "denormalized from the current version"
+        datetime deletedAt "tombstone; null means live"
+        uuid createdById
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    FileVersion {
+        uuid id PK
+        uuid nodeId FK "-> Node.id, cascade"
+        int versionNo "unique per node"
+        string blobKey "rooms/{roomId}/nodes/{nodeId}/v{versionNo}, always server-derived"
+        bigint sizeBytes "measured by a bucket HEAD, never client-reported"
+        string mimeType "application/pdf"
+        string checksum "ETag verified at confirm; re-checked before every read"
+        uuid createdById
+        datetime createdAt
+    }
+
+    Share {
+        uuid id PK
+        uuid nodeId FK "-> Node.id, cascade; a whole room is shared via its root node"
+        enum mode "PUBLIC_LINK | USER"
+        enum role "VIEWER (the enum exists so EDITOR is one value, not a redesign)"
+        string tokenHash UK "sha256 of the link token; the token itself is never stored"
+        string granteeEmail "set for USER shares, so an invite works before registration"
+        string granteeId "resolved user, when the address already has an account"
+        uuid createdById
+        datetime createdAt
+        datetime revokedAt "null means live; revocation is never a delete"
+    }
+```
+
+The index table — including the three hand-written ones below — is in
+**[docs/erd.md](docs/erd.md)**.
 
 Folders and files are one table. A `Node` is a `FOLDER` or a `FILE`; only files have
 `FileVersion` rows. Two tables would have duplicated every listing, rename, move, delete
@@ -318,9 +405,6 @@ constraints turned out to be.
   satisfied by the access guard and would prove nothing about the query. `LIKE`
   metacharacters are escaped, so a query for `20%` matches the literal string.
   Pagination is keyset, inside the query, so `LIMIT` stays honest.
-
-Also intentionally absent, per spec: no trash or restore UI (soft delete is a tombstone
-the API respects, not a user-facing bin), no audit log, no OS folder upload, no editor role.
 
 ## Production caveats
 

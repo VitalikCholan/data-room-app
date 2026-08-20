@@ -92,7 +92,7 @@ the diff engine treats an index it cannot see as drift and proposes dropping it.
 | --- | --- | --- |
 | `node_name_uniq` — `unique (parentId, lower(name)) where deletedAt is null` | raw SQL | Name collisions inside one folder, decided by the database. Prisma cannot express either half: no functional index on `lower(name)`, no partial predicate. `@@unique([parentId, name, deletedAt])` would not work either — NULLs are distinct in Postgres, so it would enforce nothing at all on live rows. |
 | `node_path_prefix` — `(roomId, path varchar_pattern_ops)` | raw SQL | Every subtree operation: rollups, recursive delete, move, scope checks. A plain btree on `path` is not used by `LIKE 'prefix%'` under a non-C collation; the pattern operator class is what makes the prefix scan an index scan. Prisma has no syntax for operator classes on btree. |
-| `node_name_trgm` — `gin (name gin_trgm_ops)` | raw SQL + `@@index(..., type: Gin, map: "node_name_trgm")` | Substring name search. Currently unused (search is not built) but kept, so re-adding search is a query, not a migration. |
+| `node_name_trgm` — `gin (name gin_trgm_ops)` | raw SQL + `@@index(..., type: Gin, map: "node_name_trgm")` | Substring name search — `GET /rooms/:roomId/search`. GIN gives substring matching but no ordering, which is why the btree on name exists alongside it. |
 | `Node_parentId_name_id_idx` | schema | Listing one folder with keyset pagination, in name order, with no sort step. |
 | `Node_roomId_path_idx` | schema | Prefix lookups Prisma itself issues, where the plan does not need the pattern class. |
 | `Node_roomId_name_idx` | schema | Name lookups across a whole room, without the trigram index. |
