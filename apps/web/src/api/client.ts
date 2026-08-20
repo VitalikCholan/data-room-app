@@ -114,9 +114,15 @@ export async function fetchBinary(path: string, opts: RequestOptions = {}): Prom
   return res.blob()
 }
 
+/** Everything a caller may pass alongside a body. `body` itself is the method's own argument. */
+type BodyRequestOptions = Omit<RequestOptions, 'body'>
+
 export const api = {
   get: <T>(path: string, opts?: RequestOptions) => apiRequest<T>('GET', path, opts),
-  post: <T>(path: string, body?: unknown) => apiRequest<T>('POST', path, { body }),
+  // `opts` is how a cancellable POST — the upload's presign and confirm — passes its
+  // abort signal. Callers with nothing to say still call it with two arguments.
+  post: <T>(path: string, body?: unknown, opts?: BodyRequestOptions) =>
+    apiRequest<T>('POST', path, { ...opts, body }),
   patch: <T>(path: string, body?: unknown) => apiRequest<T>('PATCH', path, { body }),
   del: <T>(path: string) => apiRequest<T>('DELETE', path),
 }

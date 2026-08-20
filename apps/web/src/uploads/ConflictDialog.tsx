@@ -11,12 +11,14 @@ import { useUploadStore } from './uploadStore'
  */
 export function ConflictDialog() {
   const task = useUploadStore((state) => state.pendingConflict())
-  const parkedCount = useUploadStore((state) => state.parkedCount())
+  // Counted inside the batch, because that is what one answer covers: a second drop into
+  // another folder is a different question and gets its own prompt.
+  const parkedInBatch = useUploadStore((state) => state.parkedCount(task?.batchId))
   const resolveConflict = useUploadStore((state) => state.resolveConflict)
   const [applyToAll, setApplyToAll] = useState(false)
 
   if (!task) return null
-  const remaining = parkedCount - 1
+  const remaining = parkedInBatch - 1
   const existingUpdatedAt = task.conflict?.existingUpdatedAt
 
   return (

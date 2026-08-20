@@ -45,8 +45,9 @@ export function RoomPage() {
   const first = list.data?.pages[0]
   const items: NodeItem[] = list.data?.pages.flatMap((page) => page.items) ?? []
   // The API names the folder it actually listed, which is the room root when the route
-  // carried no node id. Uploading and creating a folder need that id, so both wait for
-  // the response.
+  // carried no node id. Uploading and creating a folder need that real id, so both wait
+  // for the response. It is a request parameter only, never a cache key: the listing is
+  // keyed on the route's parent, which is null here (see `queryKeys.nodes.list`).
   const currentFolderId = first?.parent.id ?? nodeId ?? null
 
   const loadMore = useCallback(() => void list.fetchNextPage(), [list])
@@ -96,12 +97,17 @@ export function RoomPage() {
   // the folder the upload started in.
   useEffect(() => {
     setOnUploaded((task) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.list(task.roomId, task.parentId, sort) })
+      // The room prefix, not `nodes.list(roomId, task.parentId, sort)`: an upload into
+      // the room root carries the root node's real id, while the listing showing it is
+      // keyed on the `'root'` sentinel — a per-folder key would match nothing and the
+      // new file would stay invisible for the whole 15-second staleTime. The prefix also
+      // covers whichever sort mode the listing happens to be on.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.nodes.roomLists(task.roomId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.rooms.all })
       // The user may have navigated away mid-upload; the toast is how they hear about it.
       if (task.parentId !== currentFolderId) toast.success(`"${task.name}" uploaded`)
     })
-  }, [setOnUploaded, queryClient, sort, currentFolderId])
+  }, [setOnUploaded, queryClient, currentFolderId])
 
   if (list.isError) {
     return (
@@ -164,7 +170,6 @@ export function RoomPage() {
           <CreateFolderDialog
             roomId={roomId}
             parentId={currentFolderId}
-            sort={sort}
             open={isCreatingFolder}
             onClose={closeCreateFolder}
           />

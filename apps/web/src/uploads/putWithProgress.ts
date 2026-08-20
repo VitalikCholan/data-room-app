@@ -15,6 +15,14 @@ export function putWithProgress(
   signal: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    // Checked before the request is opened: `addEventListener('abort')` never fires on a
+    // signal that is already aborted, so without this a cancel made while the presign was
+    // still in flight would be dropped on the floor and the file would upload anyway.
+    if (signal.aborted) {
+      reject(new DOMException('aborted', 'AbortError'))
+      return
+    }
+
     const xhr = new XMLHttpRequest()
     xhr.open('PUT', url, true)
     // The presign was signed for this exact content type; anything else is rejected

@@ -4,26 +4,25 @@ import { Button } from '../../components/ui/button'
 import { Dialog } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
 import { useCreateFolder } from '../hooks/useNodeMutations'
-import type { SortMode } from '../hooks/useNodeList'
 import { validateNodeName } from './validateNodeName'
 
 export function CreateFolderDialog({
   roomId,
   parentId,
-  sort,
   open,
   onClose,
 }: {
   roomId: string
   parentId: string
-  sort: SortMode
   open: boolean
   onClose: () => void
 }) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const create = useCreateFolder(roomId, parentId, sort)
+  // No sort: the new folder invalidates every listing in the room, so this dialog has
+  // no listing key of its own to get wrong.
+  const create = useCreateFolder(roomId, parentId)
 
   /** `autoFocus` alone loses to Radix, which focuses the close button on open. */
   function focusName(event: Event) {

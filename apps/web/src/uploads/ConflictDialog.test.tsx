@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConflictDialog } from './ConflictDialog'
 import { useUploadStore, type UploadTask } from './uploadStore'
 
-const parked = (id: string, name: string): UploadTask => ({
+const parked = (id: string, name: string, batchId = 'b1'): UploadTask => ({
   id,
+  batchId,
   file: new File([new Uint8Array(8)], name, { type: 'application/pdf' }),
   roomId: 'r1',
   parentId: 'p1',
@@ -51,6 +52,15 @@ describe('ConflictDialog', () => {
     await userEvent.click(screen.getByRole('checkbox'))
     await userEvent.click(screen.getByRole('button', { name: /Keep both/i }))
     expect(resolveConflict).toHaveBeenCalledWith('t1', 'KEEP_BOTH', true)
+  })
+
+  it('counts only the conflicts one answer can cover', () => {
+    // The second drop is its own batch, so "do the same for the rest" must not claim it.
+    useUploadStore.setState({
+      tasks: [parked('t1', 'a.pdf'), parked('t2', 'b.pdf'), parked('t3', 'c.pdf', 'b2')],
+    })
+    render(<ConflictDialog />)
+    expect(screen.getByText(/1 remaining/i)).toBeTruthy()
   })
 
   it('cancels the upload rather than replacing the existing file', async () => {

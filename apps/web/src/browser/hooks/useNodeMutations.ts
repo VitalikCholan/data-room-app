@@ -32,14 +32,21 @@ function useListCache(roomId: string, parentId: string | null, sort: SortMode) {
   }
 }
 
-export function useCreateFolder(roomId: string, parentId: string, sort: SortMode) {
-  const { invalidate, client } = useListCache(roomId, parentId, sort)
+/**
+ * `parentId` here is a real folder id, because the API needs one — and at the room root
+ * that is the root node's uuid, while the listing on screen is keyed on the `'root'`
+ * sentinel (`queryKeys.nodes.list` with a null parent). The two never match there, so
+ * this invalidates the whole room prefix rather than one guessed listing: the same key
+ * `useMoveNode` already settles on, and the only one that cannot be wrong.
+ */
+export function useCreateFolder(roomId: string, parentId: string) {
+  const client = useQueryClient()
   return useMutation({
     // No optimistic row: the server assigns the id, and a placeholder without one
     // cannot be navigated into or acted on.
     mutationFn: (name: string) => api.post<NodeItem>(`/rooms/${roomId}/folders`, { parentId, name }),
     onSuccess: () => {
-      void invalidate()
+      void client.invalidateQueries({ queryKey: queryKeys.nodes.roomLists(roomId) })
       void client.invalidateQueries({ queryKey: queryKeys.rooms.all })
     },
   })

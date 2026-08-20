@@ -7,6 +7,7 @@ import { useUploadStore, type UploadStatus, type UploadTask } from './uploadStor
 
 const task = (id: string, name: string, status: UploadStatus, error?: string): UploadTask => ({
   id,
+  batchId: 'b1',
   file: new File([new Uint8Array(2048)], name, { type: 'application/pdf' }),
   roomId: 'r1',
   parentId: 'p1',
@@ -48,6 +49,21 @@ describe('UploadQueuePanel', () => {
     expect(cancel).toHaveBeenCalledWith('t1')
     await userEvent.click(screen.getByRole('button', { name: /Retry b.pdf/i }))
     expect(retry).toHaveBeenCalledWith('t2')
+  })
+
+  it('says a batch failed instead of heading itself "0 uploaded"', () => {
+    useUploadStore.setState({
+      tasks: [task('t1', 'a.pdf', 'error', 'Upload failed — retry'), task('t2', 'b.pdf', 'error', 'Only PDF files are supported')],
+    })
+    render(<UploadQueuePanel />)
+    expect(screen.getByText('2 failed')).toBeTruthy()
+    expect(screen.queryByText('0 uploaded')).toBeNull()
+  })
+
+  it('counts what got through beside what did not', () => {
+    useUploadStore.setState({ tasks: [task('t1', 'a.pdf', 'done'), task('t2', 'b.pdf', 'error', 'Upload failed — retry')] })
+    render(<UploadQueuePanel />)
+    expect(screen.getByText('1 uploaded, 1 failed')).toBeTruthy()
   })
 
   it('follows progress ticks without any store write', async () => {
