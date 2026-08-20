@@ -153,6 +153,25 @@ describe('fetchBinary', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
   })
 
+  it('types the blob itself and never from the response header', async () => {
+    // The bytes are attacker-controlled by design: a presigned PUT declares
+    // application/pdf and can send anything. If the type came from the header, an
+    // object url made from this blob would load HTML as a same-origin document with
+    // access to our DOM, our session and window.parent.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<script>parent.document.cookie</script>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    )
+
+    const blob = await fetchBinary('/nodes/d1/content')
+    expect(blob.type).toBe('application/pdf')
+  })
+
   it('throws the withdrawn-content error rather than an empty blob', async () => {
     vi.stubGlobal(
       'fetch',

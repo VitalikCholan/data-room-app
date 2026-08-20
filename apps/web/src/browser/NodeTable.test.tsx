@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { NodeTable } from './NodeTable'
 import { AccessContextProvider } from '../access/AccessProvider'
+import { OwnerOnly } from '../access/OwnerOnly'
 import type { NodeItem } from './hooks/useNodeList'
 
 const items: NodeItem[] = [
@@ -64,8 +65,27 @@ describe('NodeTable', () => {
     renderTable('VIEWER')
     await userEvent.click(screen.getByRole('button', { name: /Actions for MSA.pdf/i }))
     expect(screen.queryByText('Rename')).toBeNull()
+    expect(screen.queryByText('Move…')).toBeNull()
+    expect(screen.queryByText('Share…')).toBeNull()
     expect(screen.queryByText('Delete')).toBeNull()
+    // Open is the whole menu for a viewer, and it must survive.
     expect(screen.getByText('Open')).toBeTruthy()
+  })
+
+  it('offers the empty-state action to an owner', async () => {
+    const onCreate = vi.fn()
+    renderTable('OWNER', { items: [], emptyAction: <OwnerOnly><button onClick={onCreate}>New folder</button></OwnerOnly> })
+    await userEvent.click(screen.getByRole('button', { name: 'New folder' }))
+    expect(onCreate).toHaveBeenCalled()
+    expect(screen.getByText(/Drop PDFs here/i)).toBeTruthy()
+  })
+
+  it('never offers the empty-state action to a viewer', () => {
+    renderTable('VIEWER', { items: [], emptyAction: <OwnerOnly><button>New folder</button></OwnerOnly> })
+    expect(screen.getByText(/This folder is empty/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'New folder' })).toBeNull()
+    // The hint names actions a viewer will never be offered, so it stays away too.
+    expect(screen.queryByText(/Drop PDFs here/i)).toBeNull()
   })
 
   it('shows the loading skeleton instead of an empty state while fetching', () => {

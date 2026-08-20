@@ -1,6 +1,7 @@
 import { ChevronRight } from 'lucide-react'
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
+import { useAccess } from '../access/AccessProvider'
 import { NODE_DRAG_TYPE } from './dragTypes'
 import type { Crumb } from './hooks/useNodeList'
 
@@ -17,6 +18,11 @@ export const Breadcrumbs = memo(function Breadcrumbs({
   crumbs: Crumb[]
   onDropOnCrumb: (folderId: string, sourceId: string) => void
 }) {
+  // A viewer's rows are already `draggable="false"`, so nothing should ever be dragged
+  // onto a crumb — this is the second lock on the same door, because a crumb is the one
+  // drop target that would otherwise take a move from anybody who produced the drag.
+  const { isOwner } = useAccess()
+
   return (
     <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-sm">
       {crumbs.map((crumb, index) => {
@@ -33,12 +39,12 @@ export const Breadcrumbs = memo(function Breadcrumbs({
                 onDragOver={(event) => {
                   // Only a row drag. An OS file drag advertises 'Files' and belongs to
                   // the upload drop zone, which must keep receiving it.
-                  if (!event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
+                  if (!isOwner || !event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
                   event.preventDefault()
                   event.dataTransfer.dropEffect = 'move'
                 }}
                 onDrop={(event) => {
-                  if (!event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
+                  if (!isOwner || !event.dataTransfer.types.includes(NODE_DRAG_TYPE)) return
                   event.preventDefault()
                   const sourceId = event.dataTransfer.getData(NODE_DRAG_TYPE)
                   if (sourceId) onDropOnCrumb(crumb.id, sourceId)

@@ -111,7 +111,15 @@ export async function apiRequest<T>(method: string, path: string, opts: RequestO
 export async function fetchBinary(path: string, opts: RequestOptions = {}): Promise<Blob> {
   const res = await sendWithRefresh('GET', path, { ...opts, credentials: 'same-origin' })
   if (!res.ok) throw await parseError(res)
-  return res.blob()
+  // The blob's type is ours, never the response's. `res.blob()` would take it from a
+  // remote Content-Type header, and the only endpoint here is rendered through
+  // `URL.createObjectURL` in an iframe — a blob: url inherits OUR origin. The bytes
+  // behind it are attacker-controlled by design: a presigned PUT declares
+  // application/pdf and can send anything, including HTML. Typed text/html that HTML
+  // would load as a same-origin document with our DOM, our session and window.parent;
+  // typed application/pdf it can only ever be handed to the PDF viewer. Nothing but
+  // this line stands between those two outcomes.
+  return new Blob([await res.arrayBuffer()], { type: 'application/pdf' })
 }
 
 /** Everything a caller may pass alongside a body. `body` itself is the method's own argument. */

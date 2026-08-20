@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoomPage } from './RoomPage'
@@ -38,6 +38,8 @@ const listing = (role: 'OWNER' | 'VIEWER') => ({
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
 
+const fileDrag = { dataTransfer: { types: ['Files'], files: [], getData: () => '' } }
+
 function renderRoom(role: 'OWNER' | 'VIEWER') {
   const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(json(listing(role))))
   vi.stubGlobal('fetch', fetchMock)
@@ -73,6 +75,26 @@ describe('RoomPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     useUploadStore.setState({ tasks: [], batchChoices: {}, onUploaded: undefined })
+  })
+
+  it('gives an owner both ways to upload: the drop target and the file input', async () => {
+    const { container } = renderRoom('OWNER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    expect(container.querySelector('input[type="file"]')).toBeTruthy()
+    fireEvent.dragEnter(screen.getByText('MSA.pdf'), fileDrag)
+    expect(screen.getByText(/Drop PDFs here/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Upload/i })).toBeTruthy()
+  })
+
+  it('gives a viewer neither: no drop target, and no file input in the DOM at all', async () => {
+    const { container } = renderRoom('VIEWER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    expect(container.querySelector('input[type="file"]')).toBeNull()
+    fireEvent.dragEnter(screen.getByText('MSA.pdf'), fileDrag)
+    expect(screen.queryByText(/Drop PDFs here/i)).toBeNull()
+    expect(screen.queryByRole('button', { name: /Upload/i })).toBeNull()
   })
 
   it('refreshes the room-root listing when an upload into it finishes', async () => {

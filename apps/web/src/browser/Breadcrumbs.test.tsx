@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { Breadcrumbs } from './Breadcrumbs'
+import { AccessContextProvider } from '../access/AccessProvider'
 
 const nodeDrag = (sourceId: string) => ({
   dataTransfer: { types: ['application/x-node-id'], getData: () => sourceId, dropEffect: 'none' },
@@ -44,6 +45,21 @@ describe('Breadcrumbs', () => {
       </MemoryRouter>,
     )
     fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), { dataTransfer: { types: ['Files'], getData: () => '' } })
+    expect(onDropOnCrumb).not.toHaveBeenCalled()
+  })
+
+  it('never accepts a drop from a viewer', () => {
+    const onDropOnCrumb = vi.fn()
+    render(
+      <MemoryRouter>
+        <AccessContextProvider value={{ role: 'VIEWER', scopeRootId: 'root', isOwner: false }}>
+          <Breadcrumbs roomId="r1" crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} />
+        </AccessContextProvider>
+      </MemoryRouter>,
+    )
+    // A viewer's rows are not draggable, so this drag cannot come from the UI — which is
+    // exactly why the crumb has to check for itself.
+    fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), nodeDrag('doc'))
     expect(onDropOnCrumb).not.toHaveBeenCalled()
   })
 
