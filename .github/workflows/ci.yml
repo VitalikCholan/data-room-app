@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: api — lint, unit, e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `version:` input — pnpm/action-setup reads the `packageManager` field in
+      # package.json, so CI can never drift from the version developers use.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # postinstall runs `prisma generate`, which needs no database.
+      - run: pnpm install --frozen-lockfile
+
+      # The same docker-compose.yml developers run, rather than a second copy of the
+      # service definitions as GitHub `services:` blocks. Those cannot express MinIO's
+      # `command:` or the bucket-creation container at all, so the two would have drifted.
+      - name: Start Postgres and MinIO
+        run: docker compose up -d --wait postgres minio
+
+      - name: Create the bucket
+        run: docker compose run --rm minio-init
+
+      # e2e specs read apps/api/.env.test, which points at a separate database on the
+      # same server so a test run can truncate freely. That database is created by hand
+      # locally (the comment in .env.test says how); here it has to be created per run.
+      - name: Create the e2e database
+        run: docker compose exec -T postgres createdb -U dataroom dataroom_test
+
+      # DATABASE_URL is set per step, never on the job. dotenv does not overwrite a
+      # variable that already exists, so a job-level DATABASE_URL would silently win
+      # over .env.test and point the whole e2e suite at the wrong database.
+      - name: Migrate the e2e database
+        run: pnpm --filter api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://dataroom:dataroom@localhost:5433/dataroom_test?schema=public
+
+      - name: Migrate the development database
+        run: pnpm --filter api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://dataroom:dataroom@localhost:5433/dataroom?schema=public
+
+      - run: pnpm --filter api lint
+      - run: pnpm --filter api test
+      - run: pnpm --filter api test:e2e
+
+      # Emitting the contract here is what makes the web job's drift check meaningful:
+      # the JSON is produced from this commit's DTOs, not from whatever was committed.
+      - name: Emit the OpenAPI contract
+        run: pnpm --filter api openapi:emit
+        env:
+          DATABASE_URL: postgresql://dataroom:dataroom@localhost:5433/dataroom?schema=public
+          JWT_SECRET: ci-jwt-secret-value-long-enough
+          REFRESH_SECRET: ci-refresh-secret-value-different
+          PUBLIC_APP_URL: http://localhost:5173
+          S3_ENDPOINT: http://localhost:9000
+          S3_BUCKET: data-room
+          S3_REGION: us-east-1
+          S3_ACCESS_KEY_ID: minioadmin
+          S3_SECRET_ACCESS_KEY: minioadmin
+          S3_FORCE_PATH_STYLE: 'true'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: apps/api/openapi.json
+
+  web:
+    name: web — lint, unit, build
+    runs-on: ubuntu-latest
+    needs: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: openapi
+          path: apps/api
+
+      # The frontend's only source of API types is the generated schema.d.ts. Regenerating
+      # it from this commit's contract and diffing is what turns a DTO change the frontend
+      # has not caught up with into a red build instead of a runtime surprise.
+      - run: pnpm --filter web generate:api
+      - run: git diff --exit-code apps/web/src/api/schema.d.ts
+
+      - run: pnpm --filter web lint
+      - run: pnpm --filter web test
+      - run: pnpm --filter web build
