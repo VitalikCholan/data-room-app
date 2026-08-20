@@ -17,15 +17,24 @@ room exists. Revocation is immediate.
 
 | | |
 | --- | --- |
-| Web app | `TODO(deploy)` — the frontend is not deployed yet; run it locally (below) |
+| Web app | https://data-room-app-sage.vercel.app |
 | API | https://api-production-f651.up.railway.app |
 | API docs (Swagger) | https://api-production-f651.up.railway.app/docs |
-| Health | https://api-production-f651.up.railway.app/health → `{"status":"ok"}` |
+| Health | https://data-room-app-sage.vercel.app/api/health → `{"status":"ok"}` |
 
-The Vercel rewrite in `vercel.json` already points `/api/*` at that Railway host, so the
-frontend needs no build-time API URL — only a deployment. `TODO(deploy)`: add the Vercel
-URL here, and add that origin to the bucket's CORS allow-list (see
-[Production caveats](#production-caveats)).
+The browser only ever talks to the Vercel origin: `vercel.json` rewrites `/api/*` to the
+Railway host, so every request is first-party and the `SameSite=Lax` refresh cookie
+survives. The same prefix is proxied in Vite's dev server, so local and production behave
+identically — the health URL above goes through the rewrite, not straight to the API.
+
+`vercel.json` also carries a catch-all rewrite to `/index.html`; without it a reload on a
+client route like `/rooms/<id>` would 404, since only `/` exists as a file. Vercel serves
+static assets before consulting rewrites, so the catch-all cannot shadow them.
+
+The bucket's CORS allow-list holds both origins (the Vercel one and `http://localhost:5173`)
+for `PUT`, `GET` and `HEAD` — `PUT` because the browser uploads straight to the bucket
+through a presigned url, `GET`/`HEAD` because the viewer follows the API's 302 into the
+bucket to read bytes.
 
 ### Demo credentials
 
