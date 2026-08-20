@@ -8,6 +8,7 @@ import { RoomsModule } from './rooms/rooms.module'
 import { AccessModule } from './access/access.module'
 import { NodesModule } from './nodes/nodes.module'
 import { StorageModule } from './storage/storage.module'
+import { UploadsModule } from './uploads/uploads.module'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { StorageModule } from './storage/storage.module'
     AccessModule,
     NodesModule,
     StorageModule,
+    UploadsModule,
   ],
   controllers: [HealthController],
 })
