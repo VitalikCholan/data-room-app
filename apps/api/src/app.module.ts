@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module'
 import { RoomsModule } from './rooms/rooms.module'
 import { AccessModule } from './access/access.module'
 import { NodesModule } from './nodes/nodes.module'
+import { StorageModule } from './storage/storage.module'
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { NodesModule } from './nodes/nodes.module'
     RoomsModule,
     AccessModule,
     NodesModule,
+    StorageModule,
   ],
   controllers: [HealthController],
 })
