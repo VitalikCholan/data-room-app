@@ -14,7 +14,9 @@ const ROOT_ID = 'root-uuid'
 const rootListingKey = queryKeys.nodes.list('r1', null, 'name')
 
 function renderDialog(parentId = ROOT_ID) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   client.setQueryData(rootListingKey, { pages: [{ items: [] }], pageParams: [null] })
   const onClose = vi.fn()
   return {
@@ -52,11 +54,17 @@ describe('CreateFolderDialog', () => {
     const { onClose } = renderDialog()
     await submit('Legal')
     await waitFor(() => expect(onClose).toHaveBeenCalled())
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({ parentId: ROOT_ID, name: 'Legal' })
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({
+      parentId: ROOT_ID,
+      name: 'Legal',
+    })
   })
 
   it('invalidates the room-root listing, which is keyed on no parent at all', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ id: 'f9', name: 'Legal', type: 'FOLDER' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json({ id: 'f9', name: 'Legal', type: 'FOLDER' })),
+    )
     const { client, onClose } = renderDialog()
     await submit('Legal')
     await waitFor(() => expect(onClose).toHaveBeenCalled())
@@ -68,7 +76,11 @@ describe('CreateFolderDialog', () => {
   it('shows a 409 beside the field instead of closing', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(json({ code: 'NAME_CONFLICT', message: 'That name is taken in this folder' }, 409)),
+      vi
+        .fn()
+        .mockResolvedValue(
+          json({ code: 'NAME_CONFLICT', message: 'That name is taken in this folder' }, 409),
+        ),
     )
     const { onClose } = renderDialog()
     await submit('Legal')

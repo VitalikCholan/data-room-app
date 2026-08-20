@@ -41,7 +41,14 @@ export function LoginPage() {
         <label className="text-sm font-medium" htmlFor="email">
           Email
         </label>
-        <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
         <label className="text-sm font-medium" htmlFor="password">
           Password

@@ -21,6 +21,15 @@ export type NodeRowActions = {
   onDelete: (node: NodeItem) => void
   onShare: (node: NodeItem) => void
   onDropOnFolder: (sourceId: string, targetFolderId: string) => void
+  /**
+   * Supplied by the guest view only: navigate in place instead of routing. Every owner
+   * route sits behind `RequireAuth`, so a guest following one of those links would be
+   * bounced to the sign-in page — and there would be a url they could edit their way up
+   * from. Absent for the owner, whose rows stay ordinary links.
+   */
+  onNavigateFolder?: (nodeId: string) => void
+  /** Supplied by the guest view only: open a file without an authenticated route. */
+  onOpenFile?: (node: NodeItem) => void
 }
 
 /**
@@ -39,7 +48,18 @@ export const NodeRow = memo(function NodeRow({
   const { isOwner } = useAccess()
   const navigate = useNavigate()
   const [isDropTarget, setIsDropTarget] = useState(false)
-  const href = node.type === 'FOLDER' ? `/rooms/${roomId}/f/${node.id}` : `/rooms/${roomId}/file/${node.id}`
+  const href =
+    node.type === 'FOLDER' ? `/rooms/${roomId}/f/${node.id}` : `/rooms/${roomId}/file/${node.id}`
+  // One of the two guest callbacks, or nothing at all. Resolved once so the name cell
+  // and the menu's Open item can never disagree about where this row leads.
+  const navigateFolder = actions.onNavigateFolder
+  const openFile = actions.onOpenFile
+  const inPlace =
+    node.type === 'FOLDER' && navigateFolder
+      ? () => navigateFolder(node.id)
+      : node.type === 'FILE' && openFile
+        ? () => openFile(node)
+        : null
 
   return (
     <div
@@ -80,9 +100,23 @@ export const NodeRow = memo(function NodeRow({
         The name travels with the navigation because the API has no single-node read:
         the viewer would otherwise have nothing to put in its heading.
       */}
-      <Link to={href} state={{ name: node.name }} className="min-w-0 flex-1 truncate text-sm hover:text-accent">
-        {node.name}
-      </Link>
+      {inPlace ? (
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate text-left text-sm hover:text-accent"
+          onClick={() => inPlace()}
+        >
+          {node.name}
+        </button>
+      ) : (
+        <Link
+          to={href}
+          state={{ name: node.name }}
+          className="min-w-0 flex-1 truncate text-sm hover:text-accent"
+        >
+          {node.name}
+        </Link>
+      )}
 
       <span className="w-20 shrink-0 text-right text-xs text-subtle">
         {node.type === 'FILE' && node.sizeBytes !== null ? formatBytes(node.sizeBytes) : '—'}
@@ -98,7 +132,13 @@ export const NodeRow = memo(function NodeRow({
           </Button>
         </DropdownTrigger>
         <DropdownContent>
-          <DropdownItem onSelect={() => void navigate(href, { state: { name: node.name } })}>Open</DropdownItem>
+          <DropdownItem
+            onSelect={() =>
+              inPlace ? inPlace() : void navigate(href, { state: { name: node.name } })
+            }
+          >
+            Open
+          </DropdownItem>
           {isOwner ? (
             <>
               <DropdownSeparator />

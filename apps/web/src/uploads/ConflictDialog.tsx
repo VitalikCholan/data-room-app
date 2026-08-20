@@ -5,9 +5,8 @@ import { formatRelativeDate } from '../lib/format'
 import { useUploadStore } from './uploadStore'
 
 /**
- * One prompt for a whole batch. It offers exactly what the API can do: keep both under
- * a numbered name, or don't upload. There is no "replace" and no "new version" — the
- * `onConflict` enum has one member, and offering a second would 422 (Ruling 32).
+ * One prompt for a whole batch, offering exactly what the API can do: keep both under a
+ * numbered name, upload into the file already there as its next version, or don't upload.
  */
 export function ConflictDialog() {
   const task = useUploadStore((state) => state.pendingConflict())
@@ -20,6 +19,10 @@ export function ConflictDialog() {
   if (!task) return null
   const remaining = parkedInBatch - 1
   const existingUpdatedAt = task.conflict?.existingUpdatedAt
+  // Absent when a folder holds the name. A folder has no versions, so there is nothing
+  // for a new version to be a version of — the API would refuse, and offering it would be
+  // a promise this client cannot keep.
+  const currentVersionNo = task.conflict?.currentVersionNo
 
   return (
     <Dialog
@@ -27,21 +30,49 @@ export function ConflictDialog() {
       onOpenChange={() => void resolveConflict(task.id, 'CANCEL', applyToAll)}
       title={`"${task.name}" already exists in this folder`}
       description={
-        existingUpdatedAt ? `The file already there was last changed ${formatRelativeDate(existingUpdatedAt)}.` : undefined
+        existingUpdatedAt
+          ? `The file already there was last changed ${formatRelativeDate(existingUpdatedAt)}.`
+          : undefined
       }
     >
       <div className="flex flex-col gap-2">
-        <Button variant="primary" onClick={() => void resolveConflict(task.id, 'KEEP_BOTH', applyToAll)}>
+        {currentVersionNo === undefined ? null : (
+          <>
+            <Button
+              variant="primary"
+              onClick={() => void resolveConflict(task.id, 'NEW_VERSION', applyToAll)}
+            >
+              Upload as a new version of that file
+            </Button>
+            <p className="text-xs text-subtle">
+              It becomes version {currentVersionNo + 1}. Nothing is lost: version {currentVersionNo}{' '}
+              stays in the file&apos;s history and can be restored.
+            </p>
+          </>
+        )}
+        <Button
+          variant={currentVersionNo === undefined ? 'primary' : undefined}
+          onClick={() => void resolveConflict(task.id, 'KEEP_BOTH', applyToAll)}
+        >
           Keep both — upload as a numbered copy
         </Button>
-        <Button onClick={() => void resolveConflict(task.id, 'CANCEL', applyToAll)}>Don&apos;t upload this file</Button>
         {/* The exact suffix is the server's call: it picks the first free number. */}
-        <p className="text-xs text-subtle">Keeping both stores the new file as “{numberedExample(task.name)}”.</p>
+        <p className="text-xs text-subtle">
+          Keeping both stores the new file as “{numberedExample(task.name)}”.
+        </p>
+        <Button onClick={() => void resolveConflict(task.id, 'CANCEL', applyToAll)}>
+          Don&apos;t upload this file
+        </Button>
 
         {remaining > 0 ? (
           <label className="mt-2 flex items-center gap-2 text-sm text-subtle">
-            <input type="checkbox" checked={applyToAll} onChange={(event) => setApplyToAll(event.target.checked)} />
-            Do the same for the {remaining} remaining {remaining === 1 ? 'conflict' : 'conflicts'} in this batch
+            <input
+              type="checkbox"
+              checked={applyToAll}
+              onChange={(event) => setApplyToAll(event.target.checked)}
+            />
+            Do the same for the {remaining} remaining {remaining === 1 ? 'conflict' : 'conflicts'}{' '}
+            in this batch
           </label>
         ) : null}
       </div>

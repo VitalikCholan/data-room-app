@@ -70,6 +70,9 @@ importers:
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       pg:
         specifier: ^8.23.0
         version: 8.23.0
@@ -134,9 +137,6 @@ importers:
       jest:
         specifier: ^30.0.0
         version: 30.4.2(@types/node@24.13.3)(ts-node@10.9.2(@types/node@24.13.3)(typescript@5.9.3))
-      pdf-lib:
-        specifier: ^1.17.1
-        version: 1.17.1
       prettier:
         specifier: ^3.4.2
         version: 3.9.6
@@ -255,6 +255,9 @@ importers:
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@6.0.3)
+      prettier:
+        specifier: ^3.4.2
+        version: 3.9.6
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3

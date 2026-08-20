@@ -52,12 +52,21 @@ const rootListing = {
 }
 
 function renderDialog(onClose = vi.fn()) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   return {
     onClose,
     ...render(
       <QueryClientProvider client={client}>
-        <MoveDialog roomId="r1" parentId="root" rootFolderId="root" sort="name" node={moving} onClose={onClose} />
+        <MoveDialog
+          roomId="r1"
+          parentId="root"
+          rootFolderId="root"
+          sort="name"
+          node={moving}
+          onClose={onClose}
+        />
       </QueryClientProvider>,
     ),
   }
@@ -76,7 +85,9 @@ describe('MoveDialog', () => {
   it('disables the folder being moved so its subtree cannot be picked', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(rootListing)))
     renderDialog()
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Legal' })).toHaveProperty('disabled', true))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Legal' })).toHaveProperty('disabled', true),
+    )
     // No expander either: a descendant of the moving node is never a legal destination.
     expect(screen.queryByRole('button', { name: /Expand Legal/i })).toBeNull()
   })
@@ -93,16 +104,26 @@ describe('MoveDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Financials' }))
     await userEvent.click(screen.getByRole('button', { name: /^Move here$/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
-    const moveCall = fetchMock.mock.calls.find(([, init]) => (init as RequestInit)?.method === 'POST')
+    const moveCall = fetchMock.mock.calls.find(
+      ([, init]) => (init as RequestInit)?.method === 'POST',
+    )
     expect(moveCall?.[0]).toBe('/api/nodes/legal/move')
-    expect(JSON.parse((moveCall?.[1] as RequestInit).body as string)).toEqual({ targetParentId: 'fin' })
+    expect(JSON.parse((moveCall?.[1] as RequestInit).body as string)).toEqual({
+      targetParentId: 'fin',
+    })
   })
 
   it('shows the 409 name-conflict message instead of a raw code', async () => {
     const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
       Promise.resolve(
         init?.method === 'POST'
-          ? json({ code: 'NAME_CONFLICT', message: '"Legal" already exists in the destination folder' }, 409)
+          ? json(
+              {
+                code: 'NAME_CONFLICT',
+                message: '"Legal" already exists in the destination folder',
+              },
+              409,
+            )
           : json(rootListing),
       ),
     )
@@ -117,13 +138,18 @@ describe('MoveDialog', () => {
   })
 
   it('reads a move cycle as a sentence, not a code', async () => {
-    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
-      Promise.resolve(
-        init?.method === 'POST'
-          ? json({ code: 'MOVE_CYCLE', message: 'A folder cannot be moved into its own subfolder' }, 409)
-          : json(rootListing),
-      ),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url: string, init?: RequestInit) =>
+        Promise.resolve(
+          init?.method === 'POST'
+            ? json(
+                { code: 'MOVE_CYCLE', message: 'A folder cannot be moved into its own subfolder' },
+                409,
+              )
+            : json(rootListing),
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
     renderDialog()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Financials' })).toBeTruthy())

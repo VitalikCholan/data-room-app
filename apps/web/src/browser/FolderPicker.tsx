@@ -44,7 +44,9 @@ export function FolderPicker({
     queryKey: queryKeys.nodes.folderChildren(roomId, folderId),
     enabled: isExpanded && !isExcluded,
     queryFn: () =>
-      api.get<NodeListResponse>(`/rooms/${roomId}/nodes?parentId=${folderId}&sort=name&limit=${PICKER_LIMIT}`),
+      api.get<NodeListResponse>(
+        `/rooms/${roomId}/nodes?parentId=${folderId}&sort=name&limit=${PICKER_LIMIT}`,
+      ),
   })
 
   const subfolders = (children.data?.items ?? []).filter((item) => item.type === 'FOLDER')

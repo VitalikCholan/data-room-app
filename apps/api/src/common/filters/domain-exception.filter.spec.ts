@@ -9,6 +9,7 @@ describe('DomainError → HTTP status', () => {
     ['MOVE_CYCLE', 409],
     ['INVALID_TARGET', 409],
     ['UPLOAD_NOT_FOUND', 409],
+    ['EMPTY_UPLOAD', 422],
     ['TOO_LARGE', 413],
     ['UNSUPPORTED_TYPE', 415],
     ['VALIDATION', 422],

@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module'
 import { UploadsModule } from './uploads/uploads.module'
 import { FilesModule } from './files/files.module'
 import { SharesModule } from './shares/shares.module'
+import { SearchModule } from './search/search.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SharesModule } from './shares/shares.module'
     UploadsModule,
     FilesModule,
     SharesModule,
+    SearchModule,
   ],
   controllers: [HealthController],
 })

@@ -34,12 +34,22 @@ export const UploadQueueItem = memo(function UploadQueueItem({ task }: { task: U
         <span className="min-w-0 flex-1 truncate text-sm">{task.name}</span>
         <span className="shrink-0 text-xs text-subtle">{formatBytes(task.file.size)}</span>
         {isFailed ? (
-          <Button size="icon" variant="ghost" aria-label={`Retry ${task.name}`} onClick={() => void retry(task.id)}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={`Retry ${task.name}`}
+            onClick={() => void retry(task.id)}
+          >
             <RotateCcw size={14} />
           </Button>
         ) : null}
         {CANCELLABLE.has(task.status) ? (
-          <Button size="icon" variant="ghost" aria-label={`Cancel ${task.name}`} onClick={() => cancel(task.id)}>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={`Cancel ${task.name}`}
+            onClick={() => cancel(task.id)}
+          >
             <X size={14} />
           </Button>
         ) : null}

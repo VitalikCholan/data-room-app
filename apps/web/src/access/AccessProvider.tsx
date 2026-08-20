@@ -9,10 +9,20 @@ export type AccessValue = {
   isOwner: boolean
 }
 
-const AccessContext = createContext<AccessValue>({ role: 'OWNER', scopeRootId: null, isOwner: true })
+const AccessContext = createContext<AccessValue>({
+  role: 'OWNER',
+  scopeRootId: null,
+  isOwner: true,
+})
 
 /** Exported separately so tests can inject a role without a network round trip. */
-export function AccessContextProvider({ value, children }: { value: AccessValue; children: ReactNode }) {
+export function AccessContextProvider({
+  value,
+  children,
+}: {
+  value: AccessValue
+  children: ReactNode
+}) {
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>
 }
 
@@ -30,7 +40,10 @@ export function AccessProvider({
   scopeRootId: string | null
   children: ReactNode
 }) {
-  const value = useMemo<AccessValue>(() => ({ role, scopeRootId, isOwner: role === 'OWNER' }), [role, scopeRootId])
+  const value = useMemo<AccessValue>(
+    () => ({ role, scopeRootId, isOwner: role === 'OWNER' }),
+    [role, scopeRootId],
+  )
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>
 }
 

@@ -18,7 +18,9 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 function renderDialog(onClose = vi.fn()) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   return {
     onClose,
     ...render(
@@ -55,7 +57,11 @@ describe('RenameDialog', () => {
   it('surfaces a 409 inline instead of closing', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(json({ code: 'NAME_CONFLICT', message: 'That name is taken in this folder' }, 409)),
+      vi
+        .fn()
+        .mockResolvedValue(
+          json({ code: 'NAME_CONFLICT', message: 'That name is taken in this folder' }, 409),
+        ),
     )
     const { onClose } = renderDialog()
     const input = screen.getByLabelText(/Name/i, { selector: 'input' })

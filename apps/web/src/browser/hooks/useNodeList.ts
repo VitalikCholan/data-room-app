@@ -24,9 +24,19 @@ export type NodeListResponse = {
 
 export type SortMode = 'name' | 'updatedAt' | 'size'
 
-export function useNodeList(roomId: string, parentId: string | null, sort: SortMode) {
+/**
+ * `enabled` exists for the guest route: a share can target a single file, and listing a
+ * file id is a request the API is right to refuse. The owner's browser never passes it.
+ */
+export function useNodeList(
+  roomId: string,
+  parentId: string | null,
+  sort: SortMode,
+  options: { enabled?: boolean } = {},
+) {
   return useInfiniteQuery({
     queryKey: queryKeys.nodes.list(roomId, parentId, sort),
+    enabled: options.enabled ?? true,
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({ sort, limit: '50' })

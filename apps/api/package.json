@@ -14,7 +14,7 @@
     "test": "jest",
     "test:e2e": "DOTENV_CONFIG_PATH=.env.test jest --config ./jest.e2e.config.js --runInBand",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "seed": "ts-node src/seed/seed.ts",
+    "seed": "nest build && node dist/seed/seed.js",
     "openapi:emit": "nest build && node dist/openapi.js"
   },
   "dependencies": {
@@ -38,6 +38,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -61,7 +62,6 @@
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
-    "pdf-lib": "^1.17.1",
     "prettier": "^3.4.2",
     "prisma": "^7.9.1",
     "source-map-support": "^0.5.21",

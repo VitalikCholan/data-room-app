@@ -5,7 +5,13 @@ import { Dialog } from '../components/ui/dialog'
 import { Input } from '../components/ui/input'
 import { useCreateRoom } from './hooks'
 
-export function CreateRoomDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CreateRoomDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const create = useCreateRoom()
@@ -33,7 +39,14 @@ export function CreateRoomDialog({ open, onOpenChange }: { open: boolean; onOpen
         <label className="text-sm font-medium" htmlFor="room-name">
           Name
         </label>
-        <Input id="room-name" autoFocus required value={name} onChange={(e) => setName(e.target.value)} placeholder="Project Titan" />
+        <Input
+          id="room-name"
+          autoFocus
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Project Titan"
+        />
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}

@@ -14,6 +14,33 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **[VOID — RULING 34, 2026-08-20] The cut below was REVERSED by the user; search shipped after all.
+> The block is kept only as a record of what was decided when. Do not implement from it.**
+>
+> **SCOPE CUT (Ruling 32, user-approved).** Extra credit is out of scope, so:
+> - **Task 28 (Search) is DROPPED ENTIRELY.** There is no `GET /rooms/:roomId/search` endpoint —
+>   it was cut from plan 03. Build no `src/search/**`, no `SearchInput`, no `useSearch`, no tests.
+>   The plan's title and Goal line mentioning search are stale.
+> - No version history or restore anywhere in the sharing/guest UI: those endpoints do not exist.
+> - **Task 30's README must state both cuts honestly** under a "What is deliberately not built"
+>   heading, with the one-line reason each (schedule; the `FileVersion` table and the `pg_trgm`
+>   GIN index remain in the schema, so both are pure re-adds).
+>
+> **Stack reality:** React 19, Vite 8, TS 6 (`erasableSyntaxOnly`), Tailwind 4 (`@theme` tokens in
+> src/index.css, no config file), react-router-dom v7 library mode, zustand, TanStack Query 5,
+> vitest.config.ts separate from vite.config.ts.
+>
+> **Plan 04/05 debt this plan MUST clear:** `send()` in `src/api/client.ts` gives the share token
+> precedence over the bearer, so a signed-in owner who opens a share link becomes a guest for every
+> later request until it is cleared. Whatever sets the share token must clear it on leaving share
+> routes — and that needs a test.
+>
+> **Deploy caveat for Task 30:** the PDF viewer fetches bytes and follows our 302 into the bucket,
+> so the bucket CORS allow-list must include the deployed web origin, with GET. Dev MinIO allows it
+> by default; Tigris does not until the origin is added.
+>
+> Batching: Task 26+27 = one dispatch; Task 29+30 = one dispatch. Task 28 skipped.
+
 **Done when:** A reviewer can open the deployed URL, read the README's credentials, sign in as the owner, open a public guest link in a private window, see a scoped subtree with no way up, watch the owner revoke it and the guest get a clear message — and `pnpm test` plus CI are green.
 
 ## Global Constraints

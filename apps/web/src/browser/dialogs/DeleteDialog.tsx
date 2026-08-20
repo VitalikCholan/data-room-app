@@ -26,7 +26,8 @@ function DeletionSummary({ node, preview }: { node: NodeItem; preview: DeletionP
       )}
       {preview.activeShares > 0 ? (
         <p className="mt-2 font-medium text-danger">
-          {formatCount(preview.activeShares, 'active share')} stop working — {preview.activeShares} people lose access.
+          {formatCount(preview.activeShares, 'active share')} stop working — {preview.activeShares}{' '}
+          people lose access.
         </p>
       ) : null}
     </div>
@@ -69,7 +70,11 @@ export function DeleteDialog({
         <>
           <Button onClick={onClose}>Cancel</Button>
           {/* Disabled until the preview lands: consent without the numbers is not consent. */}
-          <Button variant="danger" disabled={!preview.data || remove.isPending} onClick={() => void confirm()}>
+          <Button
+            variant="danger"
+            disabled={!preview.data || remove.isPending}
+            onClick={() => void confirm()}
+          >
             {remove.isPending ? 'Deleting…' : 'Delete'}
           </Button>
         </>

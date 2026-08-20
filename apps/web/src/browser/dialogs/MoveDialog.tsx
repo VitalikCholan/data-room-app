@@ -47,7 +47,11 @@ export function MoveDialog({
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!targetId || move.isPending} onClick={() => void submit()}>
+          <Button
+            variant="primary"
+            disabled={!targetId || move.isPending}
+            onClick={() => void submit()}
+          >
             {move.isPending ? 'Moving…' : 'Move here'}
           </Button>
         </>

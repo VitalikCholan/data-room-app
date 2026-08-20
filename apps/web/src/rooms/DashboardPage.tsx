@@ -35,7 +35,9 @@ export function DashboardPage() {
       </div>
 
       {rooms.isPending ? <TableSkeleton rows={3} /> : null}
-      {rooms.isError ? <ErrorState error={rooms.error} onRetry={() => void rooms.refetch()} /> : null}
+      {rooms.isError ? (
+        <ErrorState error={rooms.error} onRetry={() => void rooms.refetch()} />
+      ) : null}
 
       {isEmpty ? (
         <div className="rounded-lg border border-border bg-surface">
@@ -54,7 +56,12 @@ export function DashboardPage() {
       {rooms.data && rooms.data.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {rooms.data.map((room) => (
-            <RoomCard key={room.id} room={room} onRename={() => setRenaming(room)} onDelete={() => setDeleting(room)} />
+            <RoomCard
+              key={room.id}
+              room={room}
+              onRename={() => setRenaming(room)}
+              onDelete={() => setDeleting(room)}
+            />
           ))}
         </ul>
       ) : null}
@@ -63,7 +70,11 @@ export function DashboardPage() {
 
       <CreateRoomDialog open={creating} onOpenChange={setCreating} />
       {/* Keyed so each open remounts the dialog and the input prefills with the room's current name. */}
-      <RenameRoomDialog key={renaming?.id ?? 'rename'} room={renaming} onClose={() => setRenaming(null)} />
+      <RenameRoomDialog
+        key={renaming?.id ?? 'rename'}
+        room={renaming}
+        onClose={() => setRenaming(null)}
+      />
       <DeleteRoomDialog room={deleting} onClose={() => setDeleting(null)} />
     </AppShell>
   )

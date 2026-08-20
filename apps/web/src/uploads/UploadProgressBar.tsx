@@ -7,7 +7,10 @@ import { getUploadProgress, subscribeUploadProgress } from './uploadProgress'
  * touch the queue panel, its siblings, or the listing behind them.
  */
 export function UploadProgressBar({ taskId, isFailed }: { taskId: string; isFailed: boolean }) {
-  const subscribe = useCallback((listener: () => void) => subscribeUploadProgress(taskId, listener), [taskId])
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeUploadProgress(taskId, listener),
+    [taskId],
+  )
   const getSnapshot = useCallback(() => getUploadProgress(taskId), [taskId])
   const percent = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 

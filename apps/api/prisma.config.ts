@@ -15,9 +15,14 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
-    // No `seed` entry yet — deliberately. Pointing it at a script that does not exist makes
-    // `prisma migrate dev` hang waiting on a seed prompt with no TTY to answer it. Plan 06 adds
-    // the entry in the same task that creates src/seed/seed.ts.
+    // Safe to wire only now that src/seed/seed.ts exists: an entry pointing at a missing
+    // script makes `prisma migrate dev` hang on a seed prompt with no TTY to answer it,
+    // which is why plan 01 left this out. It delegates to the package script rather than
+    // naming a runner, because the seed has to run compiled — ts-node cannot load the
+    // generated Prisma client, whose internal requires use `.js` specifiers that point at
+    // sibling `.ts` files (the same mismatch jest.config.js works around with
+    // moduleNameMapper).
+    seed: 'pnpm run seed',
   },
   ...(url ? { datasource: { url } } : {}),
 })

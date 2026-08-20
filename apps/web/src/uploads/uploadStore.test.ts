@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MAX_CONCURRENT, useUploadStore } from './uploadStore'
 import { getUploadProgress } from './uploadProgress'
 
-const pdf = (name: string, size = 1024) => new File([new Uint8Array(size)], name, { type: 'application/pdf' })
+const pdf = (name: string, size = 1024) =>
+  new File([new Uint8Array(size)], name, { type: 'application/pdf' })
 
 const presignResponse = (over: Record<string, unknown> = {}) => ({
   nodeId: 'n1',
@@ -47,7 +48,9 @@ describe('uploadStore', () => {
 
   it('runs a task through presign, put and confirm', async () => {
     apiMock.post.mockImplementation((path: string) =>
-      path.includes('presign') ? Promise.resolve(presignResponse()) : Promise.resolve({ id: 'n1', status: 'ACTIVE' }),
+      path.includes('presign')
+        ? Promise.resolve(presignResponse())
+        : Promise.resolve({ id: 'n1', status: 'ACTIVE' }),
     )
     putMock.putWithProgress.mockResolvedValue(undefined)
 
@@ -84,12 +87,16 @@ describe('uploadStore', () => {
     await useUploadStore
       .getState()
       .enqueue([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf'), pdf('d.pdf'), pdf('e.pdf')], 'r1', 'p1')
-    await vi.waitFor(() => expect(tasks().every((task) => task.status === 'done')).toBe(true), { timeout: 3000 })
+    await vi.waitFor(() => expect(tasks().every((task) => task.status === 'done')).toBe(true), {
+      timeout: 3000,
+    })
     expect(peak).toBeLessThanOrEqual(MAX_CONCURRENT)
   })
 
   it('rejects a non-PDF locally without calling the API', async () => {
-    await useUploadStore.getState().enqueue([new File(['x'], 'notes.txt', { type: 'text/plain' })], 'r1', 'p1')
+    await useUploadStore
+      .getState()
+      .enqueue([new File(['x'], 'notes.txt', { type: 'text/plain' })], 'r1', 'p1')
     expect(tasks()[0].status).toBe('error')
     expect(tasks()[0].error).toMatch(/PDF/i)
     expect(apiMock.post).not.toHaveBeenCalled()
@@ -126,21 +133,87 @@ describe('uploadStore', () => {
     putMock.putWithProgress.mockResolvedValue(undefined)
 
     await useUploadStore.getState().enqueue([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')], 'r1', 'p1')
-    await vi.waitFor(() => expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(3))
+    await vi.waitFor(() =>
+      expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(3),
+    )
 
     await useUploadStore.getState().resolveConflict(tasks()[0].id, 'KEEP_BOTH', true)
     await vi.waitFor(() => expect(tasks().every((task) => task.status === 'done')).toBe(true))
     expect(
       apiMock.post.mock.calls.filter(
-        ([path, body]) => (path as string).includes('presign') && (body as { onConflict?: string }).onConflict === 'KEEP_BOTH',
+        ([path, body]) =>
+          (path as string).includes('presign') &&
+          (body as { onConflict?: string }).onConflict === 'KEEP_BOTH',
       ),
     ).toHaveLength(3)
+  })
+
+  it('uploads into the existing file when the answer is NEW_VERSION', async () => {
+    apiMock.post.mockImplementation(async (path: string, body: { onConflict?: string }) => {
+      if (path.includes('presign') && !body.onConflict) throw await conflict()
+      // The server answers with the *existing* node and the next version number, which
+      // is the whole difference between this and KEEP_BOTH.
+      if (path.includes('presign'))
+        return presignResponse({ nodeId: 'n9', versionId: 'v3', versionNo: 3 })
+      return {}
+    })
+    putMock.putWithProgress.mockResolvedValue(undefined)
+
+    await useUploadStore.getState().enqueue([pdf('a.pdf')], 'r1', 'p1')
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('needs-decision'))
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', false)
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('done'))
+
+    const presigns = apiMock.post.mock.calls.filter(([path]) =>
+      (path as string).includes('presign'),
+    )
+    expect((presigns[1][1] as { onConflict?: string }).onConflict).toBe('NEW_VERSION')
+    expect(tasks()[0].nodeId).toBe('n9')
+    expect(tasks()[0].versionId).toBe('v3')
+  })
+
+  it('remembers NEW_VERSION for the whole batch, including files still presigning', async () => {
+    apiMock.post.mockImplementation(async (path: string, body: { onConflict?: string }) => {
+      if (path.includes('presign') && !body.onConflict) throw await conflict()
+      if (path.includes('presign')) return presignResponse()
+      return {}
+    })
+    putMock.putWithProgress.mockResolvedValue(undefined)
+
+    await useUploadStore.getState().enqueue([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')], 'r1', 'p1')
+    await vi.waitFor(() =>
+      expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(3),
+    )
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', true)
+    await vi.waitFor(() => expect(tasks().every((task) => task.status === 'done')).toBe(true))
+    expect(useUploadStore.getState().batchChoices[tasks()[0].batchId]).toBe('NEW_VERSION')
+    expect(
+      apiMock.post.mock.calls.filter(
+        ([path, body]) =>
+          (path as string).includes('presign') &&
+          (body as { onConflict?: string }).onConflict === 'NEW_VERSION',
+      ),
+    ).toHaveLength(3)
+  })
+
+  it('treats a conflict the server still reports after NEW_VERSION as a failure, not a question', async () => {
+    apiMock.post.mockRejectedValue(await conflict())
+    await useUploadStore.getState().enqueue([pdf('a.pdf')], 'r1', 'p1')
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('needs-decision'))
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', false)
+    // Asking again would loop forever.
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('error'))
   })
 
   it('cancelling one conflict drops only that task', async () => {
     apiMock.post.mockRejectedValue(await conflict())
     await useUploadStore.getState().enqueue([pdf('a.pdf'), pdf('b.pdf')], 'r1', 'p1')
-    await vi.waitFor(() => expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(2))
+    await vi.waitFor(() =>
+      expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(2),
+    )
 
     const [first] = tasks()
     await useUploadStore.getState().resolveConflict(first.id, 'CANCEL', false)
@@ -173,7 +246,9 @@ describe('uploadStore', () => {
         // The real presign is a fetch: it rejects when its signal aborts.
         await new Promise<void>((resolve, reject) => {
           releasePresign = resolve
-          opts?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+          opts?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('aborted', 'AbortError')),
+          )
         })
         return presignResponse()
       },
@@ -196,7 +271,9 @@ describe('uploadStore', () => {
   it('will not retry a file the local guard refused', async () => {
     // HTML bytes with a text/plain type: presign would declare application/pdf for them
     // and the API's confirm would believe it.
-    await useUploadStore.getState().enqueue([new File(['<html>'], 'notes.txt', { type: 'text/plain' })], 'r1', 'p1')
+    await useUploadStore
+      .getState()
+      .enqueue([new File(['<html>'], 'notes.txt', { type: 'text/plain' })], 'r1', 'p1')
     expect(tasks()[0].status).toBe('error')
 
     await useUploadStore.getState().retry(tasks()[0].id)
@@ -217,7 +294,8 @@ describe('uploadStore', () => {
       // The first wave — the concurrency cap — conflicts at once. The rest are held in
       // `presigning` so the user answers while they are still in flight, which is
       // exactly the wave a one-shot resolveConflict could not reach.
-      if (presignAttempts > MAX_CONCURRENT) await new Promise<void>((resolve) => heldWave.push(resolve))
+      if (presignAttempts > MAX_CONCURRENT)
+        await new Promise<void>((resolve) => heldWave.push(resolve))
       throw await conflict()
     })
     putMock.putWithProgress.mockResolvedValue(undefined)
@@ -228,7 +306,11 @@ describe('uploadStore', () => {
     await vi.waitFor(() => expect(useUploadStore.getState().parkedCount()).toBe(MAX_CONCURRENT))
     await vi.waitFor(() => expect(heldWave).toHaveLength(5 - MAX_CONCURRENT))
 
-    const alreadyAsked = new Set(tasks().filter((task) => task.status === 'needs-decision').map((task) => task.id))
+    const alreadyAsked = new Set(
+      tasks()
+        .filter((task) => task.status === 'needs-decision')
+        .map((task) => task.id),
+    )
     const askedAgain = new Set<string>()
     const unsubscribe = useUploadStore.subscribe((state) => {
       for (const task of state.tasks) {
@@ -256,7 +338,9 @@ describe('uploadStore', () => {
     putMock.putWithProgress.mockResolvedValue(undefined)
     await useUploadStore.getState().retry(tasks()[0].id)
     await vi.waitFor(() => expect(tasks()[0].status).toBe('done'))
-    expect(apiMock.post.mock.calls.filter(([path]) => (path as string).includes('presign'))).toHaveLength(2)
+    expect(
+      apiMock.post.mock.calls.filter(([path]) => (path as string).includes('presign')),
+    ).toHaveLength(2)
   })
 
   it('routes progress ticks around the store so a tick re-renders nothing but its own bar', async () => {
@@ -267,12 +351,14 @@ describe('uploadStore', () => {
     const unsubscribe = useUploadStore.subscribe(() => {
       notifications += 1
     })
-    putMock.putWithProgress.mockImplementation(async (_url: string, _file: File, onProgress: (n: number) => void) => {
-      const before = notifications
-      for (let sent = 1; sent <= 20; sent += 1) onProgress(sent / 20)
-      // Twenty ticks, zero store writes: the queue panel and its siblings never hear them.
-      expect(notifications).toBe(before)
-    })
+    putMock.putWithProgress.mockImplementation(
+      async (_url: string, _file: File, onProgress: (n: number) => void) => {
+        const before = notifications
+        for (let sent = 1; sent <= 20; sent += 1) onProgress(sent / 20)
+        // Twenty ticks, zero store writes: the queue panel and its siblings never hear them.
+        expect(notifications).toBe(before)
+      },
+    )
 
     await useUploadStore.getState().enqueue([pdf('a.pdf')], 'r1', 'p1')
     await vi.waitFor(() => expect(tasks()[0].status).toBe('done'))
@@ -295,7 +381,9 @@ describe('uploadStore', () => {
       path.includes('presign') ? Promise.resolve(presignResponse()) : Promise.resolve({}),
     )
     putMock.putWithProgress.mockResolvedValue(undefined)
-    await useUploadStore.getState().enqueue([pdf('a.pdf'), new File(['x'], 'b.txt', { type: 'text/plain' })], 'r1', 'p1')
+    await useUploadStore
+      .getState()
+      .enqueue([pdf('a.pdf'), new File(['x'], 'b.txt', { type: 'text/plain' })], 'r1', 'p1')
     await vi.waitFor(() => expect(tasks()[0].status).toBe('done'))
     useUploadStore.getState().clearFinished()
     // The failure stays: it is the only record the user has that the file was refused.

@@ -4,6 +4,12 @@ import { NodeType } from '../src/generated/prisma/enums'
 import { randomUUID } from 'node:crypto'
 import * as argon2 from 'argon2'
 import { childPath, ROOT_PATH } from '../src/nodes/node-path'
+import { assertTestDatabase } from './support/require-test-database'
+
+// Second line of defence behind jest's globalSetup: this module is what opens the
+// connection, so checking here means no spec can reach a non-`_test` database even if it
+// somehow ran with a different environment than the one globalSetup inspected.
+assertTestDatabase()
 
 export const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),

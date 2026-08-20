@@ -33,7 +33,9 @@ describe('UploadQueuePanel', () => {
   })
 
   it('lists every file with its state', () => {
-    useUploadStore.setState({ tasks: [task('t1', 'a.pdf', 'uploading'), task('t2', 'b.pdf', 'done')] })
+    useUploadStore.setState({
+      tasks: [task('t1', 'a.pdf', 'uploading'), task('t2', 'b.pdf', 'done')],
+    })
     render(<UploadQueuePanel />)
     expect(screen.getByText('a.pdf')).toBeTruthy()
     expect(screen.getByText('Uploading')).toBeTruthy()
@@ -42,7 +44,10 @@ describe('UploadQueuePanel', () => {
 
   it('cancels an upload in flight and retries a failed one', async () => {
     useUploadStore.setState({
-      tasks: [task('t1', 'a.pdf', 'uploading'), task('t2', 'b.pdf', 'error', 'Upload failed — retry')],
+      tasks: [
+        task('t1', 'a.pdf', 'uploading'),
+        task('t2', 'b.pdf', 'error', 'Upload failed — retry'),
+      ],
     })
     render(<UploadQueuePanel />)
     await userEvent.click(screen.getByRole('button', { name: /Cancel a.pdf/i }))
@@ -53,7 +58,10 @@ describe('UploadQueuePanel', () => {
 
   it('says a batch failed instead of heading itself "0 uploaded"', () => {
     useUploadStore.setState({
-      tasks: [task('t1', 'a.pdf', 'error', 'Upload failed — retry'), task('t2', 'b.pdf', 'error', 'Only PDF files are supported')],
+      tasks: [
+        task('t1', 'a.pdf', 'error', 'Upload failed — retry'),
+        task('t2', 'b.pdf', 'error', 'Only PDF files are supported'),
+      ],
     })
     render(<UploadQueuePanel />)
     expect(screen.getByText('2 failed')).toBeTruthy()
@@ -61,7 +69,9 @@ describe('UploadQueuePanel', () => {
   })
 
   it('counts what got through beside what did not', () => {
-    useUploadStore.setState({ tasks: [task('t1', 'a.pdf', 'done'), task('t2', 'b.pdf', 'error', 'Upload failed — retry')] })
+    useUploadStore.setState({
+      tasks: [task('t1', 'a.pdf', 'done'), task('t2', 'b.pdf', 'error', 'Upload failed — retry')],
+    })
     render(<UploadQueuePanel />)
     expect(screen.getByText('1 uploaded, 1 failed')).toBeTruthy()
   })
@@ -74,7 +84,9 @@ describe('UploadQueuePanel', () => {
       storeWrites += 1
     })
     setUploadProgress('t1', 42)
-    await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('42'))
+    await waitFor(() =>
+      expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('42'),
+    )
     unsubscribe()
     expect(storeWrites).toBe(0)
   })

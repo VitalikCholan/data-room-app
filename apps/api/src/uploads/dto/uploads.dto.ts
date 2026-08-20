@@ -45,12 +45,13 @@ export class PresignUploadDto {
   mimeType: string
 
   @ApiPropertyOptional({
-    enum: ['KEEP_BOTH'],
-    description: 'Omit to receive 409 NAME_CONFLICT and let the user choose',
+    enum: ['NEW_VERSION', 'KEEP_BOTH'],
+    description:
+      'Omit to receive 409 NAME_CONFLICT and let the user choose. NEW_VERSION is only valid when the name is held by a file — a folder cannot be versioned (409 NOT_VERSIONABLE)',
   })
   @IsOptional()
-  @IsIn(['KEEP_BOTH'])
-  onConflict?: 'KEEP_BOTH'
+  @IsIn(['NEW_VERSION', 'KEEP_BOTH'])
+  onConflict?: 'NEW_VERSION' | 'KEEP_BOTH'
 }
 
 export class ConfirmUploadDto {
