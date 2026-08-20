@@ -58,15 +58,23 @@ Sign in at http://localhost:5173 as `demo@dataroom.app` / `demo1234`.
 Tests:
 
 ```bash
-pnpm --filter api test                        # 75 unit tests, no database needed
+pnpm --filter api test                        # 76 unit tests, no database needed
 pnpm --filter web test                        # 162 component/hook tests (vitest, jsdom)
 
-# The e2e suite runs against its own database so it can truncate between spec files.
+# Every e2e spec truncates every table, so the suite runs against its own database and
+# refuses to start unless DATABASE_URL names one whose name ends in `_test`
+# (apps/api/test/support/require-test-database.ts). Set it up once:
+cp apps/api/.env.test.example apps/api/.env.test
 docker compose exec -T postgres createdb -U dataroom dataroom_test
 DATABASE_URL="postgresql://dataroom:dataroom@localhost:5433/dataroom_test?schema=public" \
   pnpm --filter api exec prisma migrate deploy
-pnpm --filter api test:e2e                    # 154 e2e tests against Postgres + MinIO
+pnpm --filter api test:e2e                    # 158 e2e tests against Postgres + MinIO
 ```
+
+`.env.test` is a real env file and stays gitignored, like `.env`;
+`apps/api/.env.test.example` is the committed template and can be copied verbatim. Skip
+that step and the suite aborts with the commands above rather than falling back to
+`apps/api/.env` — which is the development database, and which a green run would empty.
 
 `pnpm infra:down` stops the containers and drops their volumes. CI
 (`.github/workflows/ci.yml`) runs exactly these commands against the same
@@ -98,15 +106,19 @@ Why it matters:
   bucket accepts.
 - The key is derived from ids the server already trusts, so a client cannot aim an upload
   at another room's key space.
-- The size cap and MIME check live in `confirm`, not in presign, because a presigned PUT
-  *cannot* constrain content length — `content-length-range` exists only in POST policies.
-  Presign checks what the client *claims*; confirm checks what actually landed, and
-  rejects it by deleting the blob and tombstoning the node.
+- The size cap, the MIME check and the zero-byte check live in `confirm`, not in presign,
+  because a presigned PUT *cannot* constrain content length — `content-length-range`
+  exists only in POST policies. Presign checks what the client *claims*; confirm checks
+  what actually landed, and rejects it by deleting the blob and tombstoning the node. The
+  zero-byte rejection is there because `sizeBytes = 0` is exactly how the read path
+  recognises an *unconfirmed reservation*: an accepted empty upload would leave an ACTIVE
+  node pointing at a version the API skips forever, listing fine and 404ing in the viewer.
 - The ETag is not decoration. The presigned PUT stays valid for ~15 minutes after confirm,
   so the object can be overwritten behind the API's back. Every read HEADs the object again
-  and compares; a mismatch is 410, not a redirect to unverified bytes. (This is also why
-  the seed stores the ETag it gets back from its own HEAD — a seeded file with a null or
-  invented checksum would be a 410 in the viewer.)
+  and compares; a mismatch — **or a version with no recorded checksum at all** — is 410,
+  never a redirect to unverified bytes. (This is also why the seed stores the ETag it gets
+  back from its own HEAD: a seeded file with a null or invented checksum is a 410 in the
+  viewer.)
 
 Reads are the same trick in reverse: `GET /nodes/:id/content` authorizes, then answers
 **302** to a 5-minute presigned GET with `Content-Disposition: inline`. The viewer follows
@@ -207,6 +219,7 @@ outside their subtree, because the SQL that would return it never matches.
 | Public link revoked | 410 |
 | Name collision, or a move that would create a cycle | 409 |
 | Over 50 MB / not a PDF | 413 / 415 |
+| Uploaded object is zero bytes | 422 `EMPTY_UPLOAD` |
 | Bad request body | 422 |
 
 A stranger who probes `GET /nodes/<uuid>` must not be able to tell "no such node" from
@@ -279,8 +292,16 @@ constraints turned out to be.
   is **append-only**: restoring an older version copies it *forward* under a new number
   rather than moving the pointer back, which is what lets the orphan sweep recognise an
   abandoned re-upload — a version numbered above `currentVersionId` with no confirmed
-  bytes can only be one. Restore also copies the stored ETag, without which every
-  restored file would fail the integrity check below and answer 410.
+  bytes can only be one. Restore also copies the stored ETag, and it is worth being
+  precise about why, because the obvious guess is backwards. A 410 is *not* what a
+  dropped checksum used to cost: the read comparison was written as "compare only if a
+  checksum was recorded", so a `null` on the restored row skipped the comparison
+  entirely and the API answered **302 with unverified bytes** — the exact case the check
+  exists to catch, silently disarmed, and strictly worse than any error status. A
+  visible 410 tells the user their file is unopenable; a 302 tells them nothing and
+  serves whatever is in the bucket. That tolerance is gone now (a version with no
+  recorded checksum is refused outright), so a restore that dropped the ETag would fail
+  loudly instead — but the reason to copy it was never tidiness.
 - **Filename search.** `GET /rooms/:roomId/search` is a single query over the
   `node_name_trgm` GIN index, with the caller's scope applied **in SQL** — a share
   recipient's search cannot reach outside the subtree they were given, and that is
@@ -304,12 +325,12 @@ Two known sharp edges, both real:
    like an auth bug and is not one.
 2. **A rejected upload can leave an orphan blob.** The presigned PUT reaches the bucket
    directly, so bytes exist before the API has any say. If `confirm` rejects them (over
-   50 MB, or not a PDF) the API deletes the object and tombstones the node — but if the
-   browser never calls `confirm` at all, the object sits under a key whose `Node` is still
-   `PENDING`. The hourly sweep deletes `PENDING` nodes older than 24 hours together with
-   their blobs, which covers the abandoned-upload case; what it does not cover is a blob
-   whose DB row was already removed by a failed rejection path. Reconciling the bucket
-   against `FileVersion.blobKey` is the missing sweep.
+   50 MB, not a PDF, or zero bytes) the API deletes the object and tombstones the node —
+   but if the browser never calls `confirm` at all, the object sits under a key whose
+   `Node` is still `PENDING`. The hourly sweep deletes `PENDING` nodes older than 24 hours
+   together with their blobs, which covers the abandoned-upload case; what it does not
+   cover is a blob whose DB row was already removed by a failed rejection path.
+   Reconciling the bucket against `FileVersion.blobKey` is the missing sweep.
 
 ## Where AI was used
 
