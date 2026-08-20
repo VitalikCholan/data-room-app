@@ -38,9 +38,11 @@ export class VersionsService {
    *
    * `checksum` is copied with `blobKey`, and this is load-bearing rather than tidy:
    * the read path refuses to serve a version whose stored ETag no longer matches its
-   * recorded checksum (Ruling 33). A copy that dropped the checksum would leave every
-   * restored file unverifiable, and one that dropped it to null would silently
-   * disarm the check for those bytes.
+   * recorded checksum (Ruling 33), and refuses one with no recorded checksum at all.
+   * A copy that dropped it would therefore make every restored file answer 410 — which
+   * is the *safe* direction. The dangerous version of this bug was the earlier read
+   * path that tolerated null: it skipped the comparison instead of failing, so a
+   * restored file was served as a 302 to bytes nobody had verified.
    */
   async restore(ctx: AccessContext, node: NodeRow, versionId: string) {
     if (node.type !== 'FILE') throw notFound()

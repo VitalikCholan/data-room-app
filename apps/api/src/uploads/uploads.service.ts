@@ -225,6 +225,16 @@ export class UploadsService {
     // A rejected *new version* of a live file must leave the file alone; only a
     // brand-new file's own failed first upload takes its node down with it.
     const dropNode = node.status === 'PENDING'
+    // A zero-byte object is not a usable file, and accepting it produces a node that is
+    // permanently broken rather than merely empty: `sizeBytes = 0` is exactly how the
+    // read path recognises an *unconfirmed reservation*, so this version would be
+    // skipped by FilesService and VersionsService forever while the node sat ACTIVE
+    // pointing at it — a file that lists but 404s in the viewer, with no way back.
+    // Reject it here, with the same blob-and-row cleanup as the other rejections.
+    if (head.contentLength === 0) {
+      await this.rejectUpload(node.id, version.id, version.blobKey, dropNode)
+      throw new DomainError('EMPTY_UPLOAD', 'The uploaded file is empty')
+    }
     if (head.contentLength > MAX_UPLOAD_BYTES) {
       await this.rejectUpload(node.id, version.id, version.blobKey, dropNode)
       throw new DomainError('TOO_LARGE', 'Files must be 50 MB or smaller')

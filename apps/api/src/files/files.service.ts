@@ -41,8 +41,16 @@ export class FilesService {
     // object can be silently overwritten afterwards. Confirm pinned the verified
     // bytes' ETag as the checksum; anything else in the bucket — or nothing at
     // all — must never be served (Ruling 33).
+    //
+    // A *missing* checksum is treated the same way, deliberately. Tolerating null here
+    // would be the worse failure by far: instead of refusing, the API would hand out a
+    // 302 to bytes nobody ever verified, and any path that forgot to record a checksum
+    // (a restore that dropped it, a hand-written row, a future writer) would silently
+    // disarm the check rather than fail loudly. Nothing writes null today — confirm sets
+    // it from its own HEAD, restore copies it, the seed HEADs for it — so this closes
+    // the path instead of protecting rows that exist.
     const head = await this.storage.head(version.blobKey)
-    if (!head || (version.checksum !== null && head.etag !== version.checksum))
+    if (!head || version.checksum === null || head.etag !== version.checksum)
       throw new DomainError('GONE', 'File content is no longer available')
 
     return this.storage.presignGet(version.blobKey, {

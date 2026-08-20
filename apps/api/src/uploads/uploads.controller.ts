@@ -53,6 +53,11 @@ export class UploadsController {
     status: 415,
     description: 'Stored object is not a PDF; it has been deleted',
   })
+  @ApiResponse({
+    status: 422,
+    description:
+      'EMPTY_UPLOAD — the stored object is zero bytes; it has been deleted',
+  })
   confirm(
     @Access() ctx: AccessContext,
     @Param('nodeId') nodeId: string,

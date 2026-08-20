@@ -173,6 +173,62 @@ describe('file content', () => {
     expect((res.body as ErrorBody).code).toBe('GONE')
   })
 
+  it('answers 410 GONE for a version with no recorded checksum', async () => {
+    // A null checksum used to be tolerated, which made it the *most* dangerous state a
+    // row could be in: the object is present, so the API answered 302 and served bytes
+    // that were never compared against anything. Nothing writes null today — confirm
+    // sets it, restore copies it, the seed HEADs for it — so an unverifiable version can
+    // only be a bug or a hand-edited row, and either way it must not be served.
+    const f = await fixture()
+    const { nodeId, versionId, blobKey } = await uploadFile(f, 'unpinned.pdf')
+    // The bytes stay exactly as confirmed; only the recorded checksum is removed.
+    await prisma.fileVersion.update({
+      where: { id: versionId },
+      data: { checksum: null },
+    })
+    expect(await storage.head(blobKey)).not.toBeNull()
+
+    const res = await request(app.getHttpServer())
+      .get(`/nodes/${nodeId}/content`)
+      .set(f.auth)
+      .expect(410)
+    expect((res.body as ErrorBody).code).toBe('GONE')
+  })
+
+  it('answers 410 for an explicit ?version= whose own object was tampered with', async () => {
+    // The ETag comparison has to run against the version actually asked for, not against
+    // whichever one happens to be current. Here v2 is current and untouched while v1's
+    // object is swapped: v1 must be refused and v2 must still serve, which is only true
+    // if the check follows the requested version.
+    const f = await fixture()
+    const v1 = await uploadFile(f, 'pinned-tamper.pdf')
+    await uploadNewVersion(
+      f,
+      'pinned-tamper.pdf',
+      Buffer.from('%PDF-1.7\n% untouched v2\n'),
+    )
+
+    const { url } = await storage.presignPut(v1.blobKey, 'application/pdf')
+    const overwrite = await fetch(url, {
+      method: 'PUT',
+      body: Buffer.from('%PDF-1.7\n% v1 swapped behind the api\n'),
+      headers: { 'Content-Type': 'application/pdf' },
+    })
+    expect(overwrite.ok).toBe(true)
+
+    const res = await request(app.getHttpServer())
+      .get(`/nodes/${v1.nodeId}/content?version=${v1.versionId}`)
+      .set(f.auth)
+      .expect(410)
+    expect((res.body as ErrorBody).code).toBe('GONE')
+
+    // The current version is a different object and is unaffected.
+    await request(app.getHttpServer())
+      .get(`/nodes/${v1.nodeId}/content`)
+      .set(f.auth)
+      .expect(302)
+  })
+
   it('answers 410 GONE when the object is missing from storage', async () => {
     const f = await fixture()
     // Factory file: confirmed rows, but no object was ever uploaded to the bucket.

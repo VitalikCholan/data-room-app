@@ -5,6 +5,11 @@ module.exports = {
   // (see dotenv/lib/env-options.js) — without it this would load the development .env
   // and every e2e spec would read and write the same database `pnpm dev` uses.
   setupFiles: ['dotenv/config', 'reflect-metadata'],
+  // A data-loss guard, and the reason it lives in globalSetup rather than in a spec: it
+  // runs once in the parent process before any spec is loaded, so a DATABASE_URL that
+  // does not name a `_test` database aborts the whole run instead of truncating the
+  // development database on the way to a green report. See test/global-setup.ts.
+  globalSetup: '<rootDir>/test/global-setup.ts',
   // Override the project's `module: nodenext` for the test transform only (the real
   // build still uses tsconfig.build.json via `nest build`). Under nodenext, TS leaves
   // `await import(...)` as a native dynamic import even in CommonJS files, and the
