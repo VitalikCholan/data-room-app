@@ -75,9 +75,11 @@ export class StorageService {
     )
   }
 
-  async head(
-    key: string,
-  ): Promise<{ contentLength: number; contentType: string } | null> {
+  async head(key: string): Promise<{
+    contentLength: number
+    contentType: string
+    etag: string | null
+  } | null> {
     try {
       const out = await this.client.send(
         new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
@@ -85,10 +87,16 @@ export class StorageService {
       return {
         contentLength: Number(out.ContentLength ?? 0),
         contentType: out.ContentType ?? '',
+        // S3 wraps the ETag in literal double quotes; strip them so the stored
+        // checksum is the bare value.
+        etag: out.ETag ? out.ETag.replace(/^"|"$/g, '') : null,
       }
     } catch (error) {
       const status = (error as { $metadata?: { httpStatusCode?: number } })
         .$metadata?.httpStatusCode
+      // S3 answers HEAD on a missing key with 403, not 404, when the caller lacks
+      // ListBucket — so 403 here means "absent", the same as 404. Genuinely broken
+      // credentials do not hide behind this: they fail loudly on presign/PUT.
       if (status === 404 || status === 403) return null
       throw error
     }

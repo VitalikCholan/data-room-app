@@ -4,7 +4,7 @@ import request from 'supertest'
 import { AppModule } from '../src/app.module'
 import { configureApp } from '../src/bootstrap'
 import { StorageService } from '../src/storage/storage.service'
-import { createRoom, createUser, prisma } from './factories'
+import { createFolder, createRoom, createUser, prisma } from './factories'
 import { truncateDb } from './support/truncate-db'
 
 const PDF = Buffer.from('%PDF-1.7\n% e2e fixture\n')
@@ -45,19 +45,18 @@ describe('uploads', () => {
     await prisma.$disconnect()
   })
 
-  async function fixture() {
-    const owner = await createUser()
+  async function authFor(user: { email: string; password: string }) {
     const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: owner.email, password: owner.password })
+      .send({ email: user.email, password: user.password })
     const { accessToken } = loginRes.body as LoginBody
+    return { Authorization: `Bearer ${accessToken}` }
+  }
+
+  async function fixture() {
+    const owner = await createUser()
     const { roomId, rootId } = await createRoom(owner.id)
-    return {
-      owner,
-      roomId,
-      rootId,
-      auth: { Authorization: `Bearer ${accessToken}` },
-    }
+    return { owner, roomId, rootId, auth: await authFor(owner) }
   }
 
   async function upload(
@@ -125,6 +124,9 @@ describe('uploads', () => {
       where: { id: presignBody.versionId },
     })
     expect(Number(version.sizeBytes)).toBe(PDF.byteLength)
+    // The ETag observed at confirm time is pinned as the version checksum.
+    expect(version.checksum).toEqual(expect.any(String))
+    expect(version.checksum).not.toContain('"')
   })
 
   it('lies about its size in vain — confirm overwrites the claim', async () => {
@@ -179,6 +181,15 @@ describe('uploads', () => {
       .expect(413)
 
     await expect(storage.head(presignBody.blobKey)).resolves.toBeNull()
+    expect(
+      await prisma.fileVersion.count({
+        where: { id: presignBody.versionId },
+      }),
+    ).toBe(0)
+    const node = await prisma.node.findUniqueOrThrow({
+      where: { id: presignBody.nodeId },
+    })
+    expect(node.deletedAt).not.toBeNull()
   })
 
   it('rejects a non-PDF object with 415 and deletes it', async () => {
@@ -198,6 +209,15 @@ describe('uploads', () => {
       .expect(415)
 
     await expect(storage.head(presignBody.blobKey)).resolves.toBeNull()
+    expect(
+      await prisma.fileVersion.count({
+        where: { id: presignBody.versionId },
+      }),
+    ).toBe(0)
+    const node = await prisma.node.findUniqueOrThrow({
+      where: { id: presignBody.nodeId },
+    })
+    expect(node.deletedAt).not.toBeNull()
   })
 
   it('is idempotent: a second confirm returns the same node without a new version', async () => {
@@ -276,13 +296,9 @@ describe('uploads', () => {
   it('answers a stranger with 404, never 403 — no grant must not confirm the room exists', async () => {
     const f = await fixture()
     const stranger = await createUser()
-    const loginRes = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: stranger.email, password: stranger.password })
-    const { accessToken } = loginRes.body as LoginBody
     await request(app.getHttpServer())
       .post(`/rooms/${f.roomId}/uploads/presign`)
-      .set({ Authorization: `Bearer ${accessToken}` })
+      .set(await authFor(stranger))
       .send({
         parentId: f.rootId,
         name: 'x.pdf',
@@ -290,5 +306,97 @@ describe('uploads', () => {
         mimeType: 'application/pdf',
       })
       .expect(404)
+  })
+
+  it('404s a presign whose parentId belongs to another room, creating nothing there', async () => {
+    const f = await fixture()
+    const other = await createUser()
+    const otherRoom = await createRoom(other.id)
+
+    await request(app.getHttpServer())
+      .post(`/rooms/${f.roomId}/uploads/presign`)
+      .set(f.auth)
+      .send({
+        parentId: otherRoom.rootId,
+        name: 'smuggled.pdf',
+        sizeBytes: 10,
+        mimeType: 'application/pdf',
+      })
+      .expect(404)
+
+    expect(
+      await prisma.node.count({ where: { parentId: otherRoom.rootId } }),
+    ).toBe(0)
+  })
+
+  it('404s a stranger confirming a foreign node, leaving it PENDING', async () => {
+    const f = await fixture()
+    const { presignBody } = await upload(f, 'target.pdf')
+    await put(presignBody.uploadUrl, PDF)
+
+    const stranger = await createUser()
+    await request(app.getHttpServer())
+      .post(`/uploads/${presignBody.nodeId}/confirm`)
+      .set(await authFor(stranger))
+      .send({ versionId: presignBody.versionId })
+      .expect(404)
+
+    const node = await prisma.node.findUniqueOrThrow({
+      where: { id: presignBody.nodeId },
+    })
+    expect(node.status).toBe('PENDING')
+    expect(node.currentVersionId).toBeNull()
+    expect(node.deletedAt).toBeNull()
+  })
+
+  it('404s the owner of one room confirming a node of another', async () => {
+    const fA = await fixture()
+    const fB = await fixture()
+    const { presignBody } = await upload(fB, 'theirs.pdf')
+    await put(presignBody.uploadUrl, PDF)
+
+    await request(app.getHttpServer())
+      .post(`/uploads/${presignBody.nodeId}/confirm`)
+      .set(fA.auth)
+      .send({ versionId: presignBody.versionId })
+      .expect(404)
+
+    const node = await prisma.node.findUniqueOrThrow({
+      where: { id: presignBody.nodeId },
+    })
+    expect(node.status).toBe('PENDING')
+    expect(node.currentVersionId).toBeNull()
+  })
+
+  it('KEEP_BOTH suffixes past a FOLDER occupying the name — the unique index is type-agnostic', async () => {
+    const f = await fixture()
+    const root = await prisma.node.findUniqueOrThrow({
+      where: { id: f.rootId },
+    })
+    await createFolder(root, 'deck.pdf', f.owner.id)
+
+    const res = await upload(f, 'deck.pdf', PDF, 'KEEP_BOTH')
+    expect(res.presign.status).toBe(201)
+    expect(res.presignBody.name).toBe('deck (2).pdf')
+  })
+
+  it('rejects an over-cap declared size at presign with 413, before any node row exists', async () => {
+    const f = await fixture()
+    await request(app.getHttpServer())
+      .post(`/rooms/${f.roomId}/uploads/presign`)
+      .set(f.auth)
+      .send({
+        parentId: f.rootId,
+        name: 'giant.pdf',
+        sizeBytes: 50 * 1024 * 1024 + 1,
+        mimeType: 'application/pdf',
+      })
+      .expect(413)
+
+    expect(
+      await prisma.node.count({
+        where: { roomId: f.roomId, id: { not: f.rootId } },
+      }),
+    ).toBe(0)
   })
 })

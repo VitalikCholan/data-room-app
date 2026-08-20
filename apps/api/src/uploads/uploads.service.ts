@@ -39,12 +39,14 @@ export class UploadsService {
     })) as NodeRow | null
     if (!parent) throw notFound()
 
+    // Type-agnostic on purpose: the partial unique index node_name_uniq covers
+    // folders too, so a folder holding the name would fail the insert just as a
+    // file would.
     const existing = await this.prisma.node.findFirst({
       where: {
         parentId: parent.id,
         roomId: ctx.roomId,
         deletedAt: null,
-        type: 'FILE',
         name: { equals: dto.name, mode: 'insensitive' },
       },
       include: { versions: { orderBy: { versionNo: 'desc' }, take: 1 } },
@@ -56,14 +58,19 @@ export class UploadsService {
         `"${dto.name}" already exists in this folder`,
         {
           existingNodeId: existing.id,
-          currentVersionNo: existing.versions[0]?.versionNo ?? 1,
+          // A folder occupies the name without ever being versioned, so
+          // currentVersionNo only makes sense for a file.
+          ...(existing.type === 'FILE'
+            ? { currentVersionNo: existing.versions[0]?.versionNo ?? 1 }
+            : {}),
           existingUpdatedAt: existing.updatedAt,
         },
       )
     }
 
     // The only strategy is KEEP_BOTH (Ruling 32): a conflicting name is suffixed,
-    // never versioned onto the existing node.
+    // never versioned onto the existing node — which also covers a colliding
+    // FOLDER, since a folder can never be versioned.
     const name = existing
       ? resolveAvailableName(
           dto.name,
@@ -153,21 +160,11 @@ export class UploadsService {
       )
 
     if (head.contentLength > MAX_UPLOAD_BYTES) {
-      await this.rejectUpload(
-        node.id,
-        version.id,
-        version.blobKey,
-        node.status === 'PENDING',
-      )
+      await this.rejectUpload(node.id, version.id, version.blobKey)
       throw new DomainError('TOO_LARGE', 'Files must be 50 MB or smaller')
     }
     if (head.contentType !== ALLOWED_MIME) {
-      await this.rejectUpload(
-        node.id,
-        version.id,
-        version.blobKey,
-        node.status === 'PENDING',
-      )
+      await this.rejectUpload(node.id, version.id, version.blobKey)
       throw new DomainError('UNSUPPORTED_TYPE', 'Only PDF files are supported')
     }
 
@@ -177,6 +174,10 @@ export class UploadsService {
         data: {
           sizeBytes: BigInt(head.contentLength),
           mimeType: head.contentType,
+          // The presigned PUT stays valid ~15 min after confirm, so the object can
+          // be silently overwritten. Recording the confirmed ETag pins which bytes
+          // were verified; read-side comparison lands with the files controller.
+          checksum: head.etag,
         },
       })
       return tx.node.update({
@@ -190,18 +191,24 @@ export class UploadsService {
     })
   }
 
+  /**
+   * Under the scope cut a rejected upload is always a PENDING node's only version,
+   * so the version row is deleted and the node tombstoned together. Blob removal
+   * stays first and outside the transaction: if it fails, the rows survive and a
+   * retried confirm re-attempts the removal.
+   */
   private async rejectUpload(
     nodeId: string,
     versionId: string,
     blobKey: string,
-    dropNode: boolean,
   ) {
     await this.storage.remove(blobKey)
-    await this.prisma.fileVersion.delete({ where: { id: versionId } })
-    if (dropNode)
-      await this.prisma.node.update({
+    await this.prisma.$transaction([
+      this.prisma.fileVersion.delete({ where: { id: versionId } }),
+      this.prisma.node.update({
         where: { id: nodeId },
         data: { deletedAt: new Date() },
-      })
+      }),
+    ])
   }
 }

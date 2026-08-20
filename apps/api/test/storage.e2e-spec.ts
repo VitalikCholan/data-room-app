@@ -35,10 +35,14 @@ describe('StorageService', () => {
     })
     expect(put.ok).toBe(true)
 
-    await expect(storage.head(key)).resolves.toEqual({
+    const head = await storage.head(key)
+    expect(head).toEqual({
       contentLength: body.byteLength,
       contentType: 'application/pdf',
+      etag: expect.any(String) as string,
     })
+    // ETag arrives quoted from S3; head() strips the quotes.
+    expect(head?.etag).not.toContain('"')
   })
 
   it('serves the bytes back through a presigned GET', async () => {
