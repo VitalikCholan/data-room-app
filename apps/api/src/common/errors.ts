@@ -3,6 +3,7 @@ export type ErrorCode =
   | 'FORBIDDEN_ROLE'
   | 'GONE'
   | 'NAME_CONFLICT'
+  | 'NOT_VERSIONABLE'
   | 'MOVE_CYCLE'
   | 'INVALID_TARGET'
   | 'UPLOAD_NOT_FOUND'
@@ -17,6 +18,7 @@ const STATUS: Record<ErrorCode, number> = {
   FORBIDDEN_ROLE: 403,
   GONE: 410,
   NAME_CONFLICT: 409,
+  NOT_VERSIONABLE: 409,
   MOVE_CYCLE: 409,
   INVALID_TARGET: 409,
   UPLOAD_NOT_FOUND: 409,

@@ -13,18 +13,28 @@ export class FilesService {
   ) {}
 
   /**
-   * A 302 target for the node's current version. The node itself arrives already
-   * scope-checked by AccessGuard; the version row is keyed off node.currentVersionId,
-   * so no query here can wander outside the caller's grant.
+   * A 302 target for the node's current version, or for an explicitly named one. The
+   * node itself arrives already scope-checked by AccessGuard; the version row is
+   * looked up with `nodeId` bound to that node, so a version id belonging to another
+   * file — even one the caller can otherwise see — resolves to nothing rather than to
+   * someone else's bytes.
    *
    * Version rows with sizeBytes = 0 are reservations whose upload never confirmed.
    */
-  async presignedUrlFor(_ctx: AccessContext, node: NodeRow) {
+  async presignedUrlFor(
+    _ctx: AccessContext,
+    node: NodeRow,
+    versionId?: string,
+  ) {
     if (node.type !== 'FILE') throw notFound()
     if (node.status !== 'ACTIVE' || !node.currentVersionId) throw notFound()
-    const version = await this.prisma.fileVersion.findUnique({
-      where: { id: node.currentVersionId },
-    })
+    const version = versionId
+      ? await this.prisma.fileVersion.findFirst({
+          where: { id: versionId, nodeId: node.id },
+        })
+      : await this.prisma.fileVersion.findUnique({
+          where: { id: node.currentVersionId },
+        })
     if (!version || version.sizeBytes === BigInt(0)) throw notFound()
 
     // The presigned PUT from upload stays valid ~15 minutes past confirm, so the

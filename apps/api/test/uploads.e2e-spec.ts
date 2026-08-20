@@ -264,6 +264,114 @@ describe('uploads', () => {
     })
   })
 
+  it('NEW_VERSION adds v2 to the existing node and leaves v1 readable until confirm', async () => {
+    const f = await fixture()
+    const first = await upload(f, 'report.pdf')
+    await put(first.presignBody.uploadUrl, PDF)
+    await request(app.getHttpServer())
+      .post(`/uploads/${first.presignBody.nodeId}/confirm`)
+      .set(f.auth)
+      .send({ versionId: first.presignBody.versionId })
+      .expect(201)
+
+    const second = await upload(f, 'report.pdf', PDF, 'NEW_VERSION')
+    expect(second.presign.status).toBe(201)
+    expect(second.presign.body).toMatchObject({
+      nodeId: first.presignBody.nodeId,
+      versionNo: 2,
+    })
+
+    // Before confirm the file still shows v1 — an in-flight upload must not blank
+    // a live file.
+    const midFlight = await prisma.node.findUniqueOrThrow({
+      where: { id: first.presignBody.nodeId },
+    })
+    expect(midFlight.currentVersionId).toBe(first.presignBody.versionId)
+    expect(midFlight.status).toBe('ACTIVE')
+
+    await put(second.presignBody.uploadUrl, PDF)
+    await request(app.getHttpServer())
+      .post(`/uploads/${first.presignBody.nodeId}/confirm`)
+      .set(f.auth)
+      .send({ versionId: second.presignBody.versionId })
+      .expect(201)
+
+    const after = await prisma.node.findUniqueOrThrow({
+      where: { id: first.presignBody.nodeId },
+    })
+    expect(after.currentVersionId).toBe(second.presignBody.versionId)
+    expect(
+      await prisma.fileVersion.count({ where: { nodeId: after.id } }),
+    ).toBe(2)
+  })
+
+  it('refuses NEW_VERSION when a FOLDER holds the name — a folder cannot be versioned', async () => {
+    const f = await fixture()
+    const root = await prisma.node.findUniqueOrThrow({
+      where: { id: f.rootId },
+    })
+    const folder = await createFolder(root, 'Contracts', f.owner.id)
+
+    const res = await upload(f, 'Contracts', PDF, 'NEW_VERSION')
+    expect(res.presign.status).toBe(409)
+    expect(res.presign.body).toMatchObject({
+      code: 'NOT_VERSIONABLE',
+      details: { existingNodeId: folder.id, existingType: 'FOLDER' },
+    })
+    // Nothing was reserved: no version row, no second node.
+    expect(
+      await prisma.fileVersion.count({ where: { nodeId: folder.id } }),
+    ).toBe(0)
+    expect(await prisma.node.count({ where: { parentId: f.rootId } })).toBe(1)
+  })
+
+  it('an over-cap v2 is rejected without touching the live file or its v1', async () => {
+    const f = await fixture()
+    const first = await upload(f, 'live.pdf')
+    await put(first.presignBody.uploadUrl, PDF)
+    await request(app.getHttpServer())
+      .post(`/uploads/${first.presignBody.nodeId}/confirm`)
+      .set(f.auth)
+      .send({ versionId: first.presignBody.versionId })
+      .expect(201)
+
+    const second = await upload(f, 'live.pdf', PDF, 'NEW_VERSION')
+    await put(
+      second.presignBody.uploadUrl,
+      Buffer.alloc(50 * 1024 * 1024 + 1, 0x20),
+    )
+    await request(app.getHttpServer())
+      .post(`/uploads/${first.presignBody.nodeId}/confirm`)
+      .set(f.auth)
+      .send({ versionId: second.presignBody.versionId })
+      .expect(413)
+
+    // The rejected v2 is gone; the node is still ACTIVE on v1 and v1 still exists.
+    await expect(storage.head(second.presignBody.blobKey)).resolves.toBeNull()
+    expect(
+      await prisma.fileVersion.count({
+        where: { id: second.presignBody.versionId },
+      }),
+    ).toBe(0)
+    expect(
+      await prisma.fileVersion.count({
+        where: { nodeId: first.presignBody.nodeId },
+      }),
+    ).toBe(1)
+    const node = await prisma.node.findUniqueOrThrow({
+      where: { id: first.presignBody.nodeId },
+    })
+    expect(node.status).toBe('ACTIVE')
+    expect(node.deletedAt).toBeNull()
+    expect(node.currentVersionId).toBe(first.presignBody.versionId)
+
+    // v1 still serves — the failed re-upload did not disturb the live bytes.
+    await request(app.getHttpServer())
+      .get(`/nodes/${node.id}/content`)
+      .set(f.auth)
+      .expect(302)
+  })
+
   it('KEEP_BOTH creates a separate node with a (2) suffix', async () => {
     const f = await fixture()
     const first = await upload(f, 'deck.pdf')
