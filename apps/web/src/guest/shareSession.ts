@@ -32,6 +32,9 @@ export function useShareSession(token: string) {
     return () => {
       setShareToken(null)
       client.removeQueries({ queryKey: queryKeys.nodes.all })
+      // Search answers are node reads too, and a guest's are scoped to their share: the
+      // owner must never be handed one back, nor the guest one of the owner's.
+      client.removeQueries({ queryKey: queryKeys.search.all })
     }
   }, [token, client])
 }

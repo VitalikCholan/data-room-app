@@ -29,6 +29,16 @@ export const queryKeys = {
     versions: (nodeId: string) => ['nodes', nodeId, 'versions'] as const,
     shares: (nodeId: string) => ['nodes', nodeId, 'shares'] as const,
   },
-  search: (roomId: string, q: string) => ['search', roomId, q] as const,
+  /**
+   * Search results are node reads under another name, so they are evicted — not
+   * refreshed — when the caller's identity changes (see `useShareSession`). The scope
+   * parent is part of the key because the same term answers differently inside a share
+   * than it does across the whole room.
+   */
+  search: {
+    all: ['search'] as const,
+    results: (roomId: string, scopeParentId: string | null, q: string) =>
+      ['search', roomId, scopeParentId ?? 'room', q] as const,
+  },
   sharedBootstrap: (token: string) => ['shared', token] as const,
 }

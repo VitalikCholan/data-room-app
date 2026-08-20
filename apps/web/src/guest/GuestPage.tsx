@@ -8,10 +8,13 @@ import { useOptionalAuth } from '../auth/AuthProvider'
 import { BrowserToolbar } from '../browser/BrowserToolbar'
 import { FileBrowser } from '../browser/FileBrowser'
 import { NodeTable } from '../browser/NodeTable'
-import { useNodeList, type NodeItem, type SortMode } from '../browser/hooks/useNodeList'
+import { useNodeList, type SortMode } from '../browser/hooks/useNodeList'
 import { ErrorState } from '../components/ErrorState'
 import { Skeleton, TableSkeleton } from '../components/Skeleton'
 import { useDocumentObjectUrl } from '../files/hooks'
+import { SearchInput } from '../search/SearchInput'
+import { SearchResults } from '../search/SearchResults'
+import { isSearchable, useDebounced } from '../search/hooks'
 import { GuestGoneState } from './GuestGoneState'
 import { useShareSession } from './shareSession'
 
@@ -44,8 +47,12 @@ export function GuestPage() {
   useShareSession(token)
   const auth = useOptionalAuth()
   const [folderId, setFolderId] = useState<string | null>(null)
-  const [openFile, setOpenFile] = useState<NodeItem | null>(null)
+  // Only an id and a name are ever needed to view a document, and a search hit carries
+  // no more than that.
+  const [openFile, setOpenFile] = useState<{ id: string; name: string } | null>(null)
   const [sort, setSort] = useState<SortMode>('name')
+  const [term, setTerm] = useState('')
+  const debouncedTerm = useDebounced(term)
 
   const bootstrap = useQuery({
     queryKey: queryKeys.sharedBootstrap(token),
@@ -67,6 +74,7 @@ export function GuestPage() {
 
   const closeFile = useCallback(() => setOpenFile(null), [])
   const loadMore = useCallback(() => void list.fetchNextPage(), [list])
+  const clearSearch = useCallback(() => setTerm(''), [])
 
   if (bootstrap.isPending) return <TableSkeleton rows={4} />
   if (bootstrap.isError) return <GuestGoneState error={bootstrap.error} />
@@ -120,23 +128,41 @@ export function GuestPage() {
                   onCreateFolder={noop}
                   onPickFiles={noop}
                   onShare={noop}
-                />
+                >
+                  <SearchInput value={term} onChange={setTerm} />
+                </BrowserToolbar>
               }
             >
-              <NodeTable
-                roomId={shared.roomId}
-                items={items}
-                isLoading={list.isPending}
-                hasMore={Boolean(list.hasNextPage)}
-                onLoadMore={loadMore}
-                onRename={noop}
-                onMove={noop}
-                onDelete={noop}
-                onShare={noop}
-                onDropOnFolder={noop}
-                onNavigateFolder={setFolderId}
-                onOpenFile={setOpenFile}
-              />
+              {isSearchable(debouncedTerm) ? (
+                <SearchResults
+                  roomId={shared.roomId}
+                  term={debouncedTerm}
+                  /*
+                    The shared node itself, always — never the folder the guest happens to
+                    be standing in, and never null. The API resolves access from this id,
+                    so it is what keeps a hit from outside the share from ever being named.
+                  */
+                  scopeParentId={shared.node.id}
+                  onClear={clearSearch}
+                  onNavigateFolder={setFolderId}
+                  onOpenFile={setOpenFile}
+                />
+              ) : (
+                <NodeTable
+                  roomId={shared.roomId}
+                  items={items}
+                  isLoading={list.isPending}
+                  hasMore={Boolean(list.hasNextPage)}
+                  onLoadMore={loadMore}
+                  onRename={noop}
+                  onMove={noop}
+                  onDelete={noop}
+                  onShare={noop}
+                  onDropOnFolder={noop}
+                  onNavigateFolder={setFolderId}
+                  onOpenFile={setOpenFile}
+                />
+              )}
             </FileBrowser>
           )}
         </main>

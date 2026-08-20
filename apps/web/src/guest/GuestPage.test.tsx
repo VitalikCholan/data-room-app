@@ -43,6 +43,21 @@ const nestedListings: Record<string, unknown> = {
   },
 }
 
+const searchHits = {
+  items: [
+    {
+      id: 'd7',
+      name: 'NDA.pdf',
+      type: 'FILE',
+      sizeBytes: 1024,
+      updatedAt: now,
+      parentId: 'deals',
+      parentName: 'Deals',
+    },
+  ],
+  nextCursor: null,
+}
+
 const guestRoutes = (
   <MemoryRouter initialEntries={['/s/tok']}>
     <Routes>
@@ -134,6 +149,32 @@ describe('GuestPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Deals' })).toBeTruthy())
   })
 
+  it('searches inside the share only, and opens a hit in place', async () => {
+    Object.assign(URL, { createObjectURL: () => 'blob:pdf', revokeObjectURL: () => undefined })
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/shared/')) return Promise.resolve(json(bootstrap))
+      if (url.includes('/search?')) return Promise.resolve(json(searchHits))
+      return Promise.resolve(json(listing))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { container } = renderGuest()
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    await userEvent.type(screen.getByLabelText(/Search by name/i), 'nda')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NDA.pdf' })).toBeTruthy())
+
+    // Pinned to the shared node: without this the API would resolve access from the room
+    // and a guest could name a file they were never given.
+    const searched = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/search?'))
+    expect(searched).toHaveLength(1)
+    expect(new URL(searched[0], 'http://test').searchParams.get('parentId')).toBe('legal')
+    // Still no url out of the share: the hit is a control, not a link.
+    expect(container.querySelectorAll('a[href^="/rooms/"]')).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('button', { name: 'NDA.pdf' }))
+    await waitFor(() => expect(screen.getByTitle('NDA.pdf')).toBeTruthy())
+  })
+
   it('shows the revoked message on 410 rather than a bare not-found', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'GONE', message: 'This link is no longer active' }, 410)))
     renderGuest()
@@ -190,6 +231,26 @@ describe('GuestPage', () => {
     await waitFor(() => expect(getShareToken()).toBe('tok'))
     unmount()
     expect(getShareToken()).toBeNull()
+  })
+
+  it('takes the guest search results with it when the share view is left', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/shared/')) return Promise.resolve(json(bootstrap))
+      if (url.includes('/search?')) return Promise.resolve(json(searchHits))
+      return Promise.resolve(json(listing))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { unmount } = render(<QueryClientProvider client={client}>{guestRoutes}</QueryClientProvider>)
+
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+    await userEvent.type(screen.getByLabelText(/Search by name/i), 'nda')
+    await waitFor(() => expect(client.getQueryCache().findAll({ queryKey: ['search'] })).toHaveLength(1))
+
+    unmount()
+    // Not stale — somebody else's. An owner who opened their own link must not inherit
+    // the scoped answers the recipient got.
+    expect(client.getQueryCache().findAll({ queryKey: ['search'] })).toHaveLength(0)
   })
 
   it('hands a signed-in visitor their own identity back when they leave the share', async () => {

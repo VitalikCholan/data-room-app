@@ -36,6 +36,21 @@ const listing = (role: 'OWNER' | 'VIEWER') => ({
   scopeRootId: ROOT_ID,
 })
 
+const searchHits = {
+  items: [
+    {
+      id: 'd2',
+      name: 'FY23 Audit.pdf',
+      type: 'FILE',
+      sizeBytes: 4096,
+      updatedAt: new Date().toISOString(),
+      parentId: 'fin',
+      parentName: 'Financials',
+    },
+  ],
+  nextCursor: null,
+}
+
 const json = (body: unknown) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
 
@@ -44,9 +59,12 @@ const fileDrag = { dataTransfer: { types: ['Files'], files: [], getData: () => '
 function renderRoom(role: 'OWNER' | 'VIEWER') {
   const fetchMock = vi
     .fn()
-    .mockImplementation((url: string) =>
-      Promise.resolve(String(url).includes('/shares') ? json([]) : json(listing(role))),
-    )
+    .mockImplementation((url: string) => {
+      const path = String(url)
+      if (path.includes('/search?')) return Promise.resolve(json(searchHits))
+      if (path.includes('/shares')) return Promise.resolve(json([]))
+      return Promise.resolve(json(listing(role)))
+    })
   vi.stubGlobal('fetch', fetchMock)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return {
@@ -118,6 +136,43 @@ describe('RoomPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Actions for MSA.pdf/i }))
     await userEvent.click(screen.getByText('Share…'))
     await waitFor(() => expect(screen.getByText(/Share file "MSA.pdf"/i)).toBeTruthy())
+  })
+
+  it('replaces the listing with results while a search is running, and puts it back on clear', async () => {
+    const { fetchMock } = renderRoom('OWNER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    await userEvent.type(screen.getByLabelText(/Search by name/i), 'aud')
+    await waitFor(() => expect(screen.getByText('FY23 Audit.pdf')).toBeTruthy())
+    // The table is gone, not merely covered: a hit list is a different answer.
+    expect(screen.queryByText('MSA.pdf')).toBeNull()
+    expect(screen.getByText(/in Financials/i)).toBeTruthy()
+    // The owner names no parent, so the API resolves access from the room and the whole
+    // tree answers.
+    const searched = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/search?'))
+    expect(searched).toHaveLength(1)
+    expect(searched[0]).not.toContain('parentId')
+
+    await userEvent.click(screen.getByRole('button', { name: /Clear search/i }))
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+  })
+
+  it('asks nothing until the term is worth asking about', async () => {
+    const { fetchMock } = renderRoom('OWNER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    await userEvent.type(screen.getByLabelText(/Search by name/i), 'a')
+    // Two characters is the server's minimum: one would only earn a 422. The folder
+    // listing stays on screen rather than being traded for a placeholder.
+    await waitFor(() => expect(screen.getByDisplayValue('a')).toBeTruthy())
+    expect(screen.getByText('MSA.pdf')).toBeTruthy()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/search?'))).toBe(false)
+  })
+
+  it('leaves search to a viewer, who may read but not change anything', async () => {
+    renderRoom('VIEWER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+    expect(screen.getByLabelText(/Search by name/i)).toBeTruthy()
   })
 
   it('refreshes the room-root listing when an upload into it finishes', async () => {
