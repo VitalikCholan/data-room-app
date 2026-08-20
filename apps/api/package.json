@@ -15,7 +15,7 @@
     "test:e2e": "DOTENV_CONFIG_PATH=.env.test jest --config ./jest.e2e.config.js --runInBand",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
     "seed": "ts-node src/seed/seed.ts",
-    "openapi:emit": "ts-node src/openapi.ts"
+    "openapi:emit": "nest build && node dist/openapi.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",

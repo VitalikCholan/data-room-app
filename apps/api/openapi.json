@@ -1,0 +1,911 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness probe used by the Railway healthcheck",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "Email already registered"
+          },
+          "422": {
+            "description": "Validation failed"
+          }
+        },
+        "summary": "Create an account",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Incorrect email or password"
+          }
+        },
+        "summary": "Sign in with email and password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "responses": {
+          "401": {
+            "description": "Missing, expired or invalid refresh token"
+          }
+        },
+        "summary": "Exchange the refresh cookie for a new access token",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Clear the refresh cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "401": {
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Current session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/rooms": {
+      "post": {
+        "operationId": "RoomsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a Data Room and its root folder",
+        "tags": [
+          "rooms"
+        ]
+      },
+      "get": {
+        "operationId": "RoomsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List owned Data Rooms with subtree totals",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/rooms/shared-with-me": {
+      "get": {
+        "operationId": "RoomsController_sharedWithMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Items shared with the signed-in user",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/rooms/{id}": {
+      "patch": {
+        "operationId": "RoomsController_rename",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRoomDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "404": {
+            "description": "Not found or not owned by the caller"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Rename a Data Room and its root folder",
+        "tags": [
+          "rooms"
+        ]
+      },
+      "delete": {
+        "operationId": "RoomsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not found or not owned by the caller"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a Data Room and everything in it",
+        "tags": [
+          "rooms"
+        ]
+      }
+    },
+    "/rooms/{roomId}/nodes": {
+      "get": {
+        "operationId": "NodesController_list",
+        "parameters": [
+          {
+            "name": "parentId",
+            "required": false,
+            "in": "query",
+            "description": "Folder to list; defaults to the room root",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Keyset cursor from a previous page",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "name",
+              "type": "string",
+              "enum": [
+                "name",
+                "updatedAt",
+                "size"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not found or no access"
+          },
+          "410": {
+            "description": "The folder or an ancestor was deleted by the owner"
+          },
+          "422": {
+            "description": "Malformed cursor"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List a folder: children, breadcrumbs and the caller role",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/rooms/{roomId}/folders": {
+      "post": {
+        "operationId": "NodesController_createFolder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFolderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Read-only access"
+          },
+          "409": {
+            "description": "A folder or file with this name already exists here"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Create a folder",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/nodes/{id}": {
+      "patch": {
+        "operationId": "NodesController_rename",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameNodeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Read-only access"
+          },
+          "409": {
+            "description": "That name is taken in this folder"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Rename a folder or file",
+        "tags": [
+          "nodes"
+        ]
+      },
+      "delete": {
+        "operationId": "NodesController_remove",
+        "parameters": [],
+        "responses": {
+          "403": {
+            "description": "Read-only access"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Delete a folder or file and everything beneath it",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/nodes/{id}/move": {
+      "post": {
+        "operationId": "NodesController_moveNode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveNodeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "403": {
+            "description": "Read-only access"
+          },
+          "409": {
+            "description": "Name collision in the destination, or a move into own descendant"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Move a folder or file into another folder",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/nodes/{id}/rollup": {
+      "get": {
+        "operationId": "NodesController_rollupFor",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Total folders, files and bytes beneath a folder",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/nodes/{id}/deletion-preview": {
+      "get": {
+        "operationId": "NodesController_deletionPreview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "What deleting this item would destroy, including shares",
+        "tags": [
+          "nodes"
+        ]
+      }
+    },
+    "/rooms/{roomId}/uploads/presign": {
+      "post": {
+        "operationId": "UploadsController_presign",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "NAME_CONFLICT — resend with onConflict to resolve"
+          },
+          "413": {
+            "description": "Declared size exceeds 50 MB"
+          },
+          "415": {
+            "description": "Only application/pdf is accepted"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Reserve a file row and return a presigned PUT url",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/uploads/{nodeId}/confirm": {
+      "post": {
+        "operationId": "UploadsController_confirm",
+        "parameters": [
+          {
+            "name": "nodeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmUploadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "409": {
+            "description": "UPLOAD_NOT_FOUND — the object is not in storage yet"
+          },
+          "413": {
+            "description": "Stored object exceeds 50 MB; it has been deleted"
+          },
+          "415": {
+            "description": "Stored object is not a PDF; it has been deleted"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify the uploaded object and activate the file",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/nodes/{id}/content": {
+      "get": {
+        "operationId": "FilesController_content",
+        "parameters": [],
+        "responses": {
+          "302": {
+            "description": "Location carries the presigned url"
+          },
+          "410": {
+            "description": "Deleted by the owner, or the stored object no longer matches what was verified at upload"
+          }
+        },
+        "security": [
+          {
+            "share-token": []
+          },
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Redirect to a 5-minute presigned GET for viewing in the browser",
+        "tags": [
+          "files"
+        ]
+      }
+    },
+    "/nodes/{id}/shares": {
+      "post": {
+        "operationId": "SharesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "For PUBLIC_LINK the raw token is returned once and never again"
+          },
+          "403": {
+            "description": "Read-only access"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Share a Data Room, folder or file (read-only)",
+        "tags": [
+          "shares"
+        ]
+      },
+      "get": {
+        "operationId": "SharesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Shares on this item, including revoked ones",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/shares/{id}": {
+      "delete": {
+        "operationId": "SharesController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not found or not owned by the caller"
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Revoke a share",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/shared/{token}": {
+      "get": {
+        "operationId": "PublicShareController_resolve",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "No such link"
+          },
+          "410": {
+            "description": "Link revoked, or the item was deleted"
+          }
+        },
+        "summary": "Resolve a public link into its target — no authentication required",
+        "tags": [
+          "shares"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Data Room API",
+    "description": "Owner-scoped document repository with read-only sharing",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "share-token": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Share-Token"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "analyst@acme.io"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "password123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Dana Analyst"
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "name"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "demo@dataroom.app"
+          },
+          "password": {
+            "type": "string",
+            "example": "demo1234"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "CreateRoomDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Project Titan — Acme Acquisition"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RenameRoomDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Project Titan — Acme Acquisition"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateFolderDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Financials"
+          },
+          "parentId": {
+            "type": "string",
+            "description": "Parent folder id; the room root id for a top-level folder"
+          }
+        },
+        "required": [
+          "name",
+          "parentId"
+        ]
+      },
+      "RenameNodeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Financials"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "MoveNodeDto": {
+        "type": "object",
+        "properties": {
+          "targetParentId": {
+            "type": "string",
+            "description": "Destination folder id"
+          }
+        },
+        "required": [
+          "targetParentId"
+        ]
+      },
+      "PresignUploadDto": {
+        "type": "object",
+        "properties": {
+          "parentId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "FY23 Audit.pdf"
+          },
+          "sizeBytes": {
+            "type": "number",
+            "description": "Client-reported size; re-read from the bucket on confirm"
+          },
+          "mimeType": {
+            "type": "string",
+            "example": "application/pdf"
+          },
+          "onConflict": {
+            "type": "string",
+            "enum": [
+              "KEEP_BOTH"
+            ],
+            "description": "Omit to receive 409 NAME_CONFLICT and let the user choose"
+          }
+        },
+        "required": [
+          "parentId",
+          "name",
+          "sizeBytes",
+          "mimeType"
+        ]
+      },
+      "ConfirmUploadDto": {
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string",
+            "description": "Version id returned by presign"
+          }
+        },
+        "required": [
+          "versionId"
+        ]
+      },
+      "CreateShareDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "PUBLIC_LINK",
+              "USER"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "description": "Required for mode USER; may be an address with no account yet"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      }
+    }
+  }
+}
