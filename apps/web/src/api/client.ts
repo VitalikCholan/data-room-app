@@ -35,8 +35,17 @@ type RequestOptions = { body?: unknown; signal?: AbortSignal; credentials?: Requ
 
 async function parseError(res: Response): Promise<ApiError> {
   try {
-    const body = (await res.json()) as { code?: string; message?: string; details?: Record<string, unknown> }
-    return new ApiError(res.status, body.code ?? 'UNKNOWN', body.message ?? res.statusText, body.details)
+    const body = (await res.json()) as {
+      code?: string
+      message?: string
+      details?: Record<string, unknown>
+    }
+    return new ApiError(
+      res.status,
+      body.code ?? 'UNKNOWN',
+      body.message ?? res.statusText,
+      body.details,
+    )
   } catch {
     return new ApiError(res.status, 'UNKNOWN', res.statusText || 'Request failed')
   }
@@ -72,7 +81,11 @@ async function send(method: string, path: string, opts: RequestOptions): Promise
  * token does not expire, so a 401 there means something else is wrong. Shared by the
  * JSON helpers and by the binary fetch below so both authenticate identically.
  */
-async function sendWithRefresh(method: string, path: string, opts: RequestOptions): Promise<Response> {
+async function sendWithRefresh(
+  method: string,
+  path: string,
+  opts: RequestOptions,
+): Promise<Response> {
   const res = await send(method, path, opts)
   if (res.status !== 401 || shareToken || path === '/auth/refresh') return res
   if (await refreshSession()) return send(method, path, opts)
@@ -81,7 +94,11 @@ async function sendWithRefresh(method: string, path: string, opts: RequestOption
   return res
 }
 
-export async function apiRequest<T>(method: string, path: string, opts: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(
+  method: string,
+  path: string,
+  opts: RequestOptions = {},
+): Promise<T> {
   const res = await sendWithRefresh(method, path, opts)
 
   if (!res.ok) throw await parseError(res)

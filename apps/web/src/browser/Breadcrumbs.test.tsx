@@ -44,7 +44,9 @@ describe('Breadcrumbs', () => {
         <Breadcrumbs roomId="r1" crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} />
       </MemoryRouter>,
     )
-    fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), { dataTransfer: { types: ['Files'], getData: () => '' } })
+    fireEvent.drop(screen.getByRole('link', { name: 'Legal' }), {
+      dataTransfer: { types: ['Files'], getData: () => '' },
+    })
     expect(onDropOnCrumb).not.toHaveBeenCalled()
   })
 

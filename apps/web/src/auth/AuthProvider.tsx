@@ -1,5 +1,13 @@
 /* eslint-disable react-refresh/only-export-components -- useAuth is the companion hook of this provider */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError, onUnauthenticated, setAccessToken } from '../api/client'
 
@@ -71,7 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       adoptSession,
       login: async (input) => adoptSession(await api.post<SessionResponse>('/auth/login', input)),
-      register: async (input) => adoptSession(await api.post<SessionResponse>('/auth/register', input)),
+      register: async (input) =>
+        adoptSession(await api.post<SessionResponse>('/auth/register', input)),
       logout: async () => {
         await api.post('/auth/logout').catch((error) => {
           // A failed logout must still clear the client: the cookie is gone either way.

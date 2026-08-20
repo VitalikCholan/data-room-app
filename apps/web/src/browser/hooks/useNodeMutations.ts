@@ -5,7 +5,12 @@ import type { NodeItem, NodeListResponse, SortMode } from './useNodeList'
 
 type Pages = { pages: NodeListResponse[]; pageParams: unknown[] }
 
-export type DeletionPreview = { folders: number; files: number; bytes: number; activeShares: number }
+export type DeletionPreview = {
+  folders: number
+  files: number
+  bytes: number
+  activeShares: number
+}
 
 /**
  * The shared cache surgery. Every mutation hook below owns its own optimistic update
@@ -24,7 +29,9 @@ function useListCache(roomId: string, parentId: string | null, sort: SortMode) {
     patchItems: (patch: (items: NodeItem[]) => NodeItem[]) => {
       const previous = client.getQueryData<Pages>(key)
       client.setQueryData<Pages>(key, (data) =>
-        data ? { ...data, pages: data.pages.map((page) => ({ ...page, items: patch(page.items) })) } : data,
+        data
+          ? { ...data, pages: data.pages.map((page) => ({ ...page, items: patch(page.items) })) }
+          : data,
       )
       return previous
     },
@@ -44,7 +51,8 @@ export function useCreateFolder(roomId: string, parentId: string) {
   return useMutation({
     // No optimistic row: the server assigns the id, and a placeholder without one
     // cannot be navigated into or acted on.
-    mutationFn: (name: string) => api.post<NodeItem>(`/rooms/${roomId}/folders`, { parentId, name }),
+    mutationFn: (name: string) =>
+      api.post<NodeItem>(`/rooms/${roomId}/folders`, { parentId, name }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.nodes.roomLists(roomId) })
       void client.invalidateQueries({ queryKey: queryKeys.rooms.all })
@@ -55,9 +63,12 @@ export function useCreateFolder(roomId: string, parentId: string) {
 export function useRenameNode(roomId: string, parentId: string | null, sort: SortMode) {
   const { patchItems, restore, invalidate } = useListCache(roomId, parentId, sort)
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => api.patch<NodeItem>(`/nodes/${id}`, { name }),
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch<NodeItem>(`/nodes/${id}`, { name }),
     onMutate: ({ id, name }) => ({
-      previous: patchItems((items) => items.map((item) => (item.id === id ? { ...item, name } : item))),
+      previous: patchItems((items) =>
+        items.map((item) => (item.id === id ? { ...item, name } : item)),
+      ),
     }),
     onError: (_error, _vars, context) => restore(context?.previous),
     // Name is the default sort key, so the row's position — not only its label — changes.
@@ -85,7 +96,9 @@ export function useMoveNode(roomId: string, parentId: string | null, sort: SortM
     mutationFn: ({ id, targetParentId }: { id: string; targetParentId: string }) =>
       api.post<NodeItem>(`/nodes/${id}/move`, { targetParentId }),
     // The row leaves the current folder, so removing it optimistically is correct.
-    onMutate: ({ id }) => ({ previous: patchItems((items) => items.filter((item) => item.id !== id)) }),
+    onMutate: ({ id }) => ({
+      previous: patchItems((items) => items.filter((item) => item.id !== id)),
+    }),
     onError: (_error, _vars, context) => restore(context?.previous),
     // Two folders changed, and only one of them is the listing on screen.
     onSettled: () => void client.invalidateQueries({ queryKey: queryKeys.nodes.roomLists(roomId) }),

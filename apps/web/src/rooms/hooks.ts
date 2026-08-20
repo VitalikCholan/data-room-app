@@ -20,10 +20,14 @@ export type SharedItem = {
   isWholeRoom: boolean
 }
 
-export const useRooms = () => useQuery({ queryKey: queryKeys.rooms.all, queryFn: () => api.get<Room[]>('/rooms') })
+export const useRooms = () =>
+  useQuery({ queryKey: queryKeys.rooms.all, queryFn: () => api.get<Room[]>('/rooms') })
 
 export const useSharedWithMe = () =>
-  useQuery({ queryKey: queryKeys.rooms.sharedWithMe, queryFn: () => api.get<SharedItem[]>('/rooms/shared-with-me') })
+  useQuery({
+    queryKey: queryKeys.rooms.sharedWithMe,
+    queryFn: () => api.get<SharedItem[]>('/rooms/shared-with-me'),
+  })
 
 export function useCreateRoom() {
   const client = useQueryClient()
@@ -36,7 +40,8 @@ export function useCreateRoom() {
 export function useRenameRoom() {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => api.patch<Room>(`/rooms/${id}`, { name }),
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch<Room>(`/rooms/${id}`, { name }),
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.rooms.all }),
   })
 }

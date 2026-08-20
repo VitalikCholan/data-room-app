@@ -48,7 +48,8 @@ export const NodeRow = memo(function NodeRow({
   const { isOwner } = useAccess()
   const navigate = useNavigate()
   const [isDropTarget, setIsDropTarget] = useState(false)
-  const href = node.type === 'FOLDER' ? `/rooms/${roomId}/f/${node.id}` : `/rooms/${roomId}/file/${node.id}`
+  const href =
+    node.type === 'FOLDER' ? `/rooms/${roomId}/f/${node.id}` : `/rooms/${roomId}/file/${node.id}`
   // One of the two guest callbacks, or nothing at all. Resolved once so the name cell
   // and the menu's Open item can never disagree about where this row leads.
   const navigateFolder = actions.onNavigateFolder
@@ -108,7 +109,11 @@ export const NodeRow = memo(function NodeRow({
           {node.name}
         </button>
       ) : (
-        <Link to={href} state={{ name: node.name }} className="min-w-0 flex-1 truncate text-sm hover:text-accent">
+        <Link
+          to={href}
+          state={{ name: node.name }}
+          className="min-w-0 flex-1 truncate text-sm hover:text-accent"
+        >
           {node.name}
         </Link>
       )}
@@ -127,7 +132,11 @@ export const NodeRow = memo(function NodeRow({
           </Button>
         </DropdownTrigger>
         <DropdownContent>
-          <DropdownItem onSelect={() => (inPlace ? inPlace() : void navigate(href, { state: { name: node.name } }))}>
+          <DropdownItem
+            onSelect={() =>
+              inPlace ? inPlace() : void navigate(href, { state: { name: node.name } })
+            }
+          >
             Open
           </DropdownItem>
           {isOwner ? (

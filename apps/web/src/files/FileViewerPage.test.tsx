@@ -25,16 +25,39 @@ const errorResponse = (status: number, code: string, message: string) =>
   })
 
 const json = (body: unknown) =>
-  new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
 
 const now = new Date().toISOString()
 
 const versions = [
-  { id: 'v2', versionNo: 2, sizeBytes: 4096, mimeType: 'application/pdf', createdAt: now, isCurrent: true },
-  { id: 'v1', versionNo: 1, sizeBytes: 2048, mimeType: 'application/pdf', createdAt: now, isCurrent: false },
+  {
+    id: 'v2',
+    versionNo: 2,
+    sizeBytes: 4096,
+    mimeType: 'application/pdf',
+    createdAt: now,
+    isCurrent: true,
+  },
+  {
+    id: 'v1',
+    versionNo: 1,
+    sizeBytes: 2048,
+    mimeType: 'application/pdf',
+    createdAt: now,
+    isCurrent: false,
+  },
 ]
 
-const ownedRoom = { id: 'r1', name: 'Project Titan', rootNodeId: 'root', createdAt: now, rollup: { folders: 0, files: 1, bytes: 4096 } }
+const ownedRoom = {
+  id: 'r1',
+  name: 'Project Titan',
+  rootNodeId: 'root',
+  createdAt: now,
+  rollup: { folders: 0, files: 1, bytes: 4096 },
+}
 
 /**
  * One mock for the three answers the viewer needs: the bytes, the history, and whether
@@ -44,7 +67,8 @@ const viewerFetch = (options: { owned?: boolean; content?: () => Response } = {}
   vi.fn().mockImplementation((url: string) => {
     const path = String(url)
     if (path.endsWith('/versions')) return Promise.resolve(json(versions))
-    if (path.endsWith('/rooms')) return Promise.resolve(json(options.owned === false ? [] : [ownedRoom]))
+    if (path.endsWith('/rooms'))
+      return Promise.resolve(json(options.owned === false ? [] : [ownedRoom]))
     return Promise.resolve((options.content ?? pdfResponse)())
   })
 
@@ -87,20 +111,26 @@ describe('FileViewerPage', () => {
   it('says the content is gone when the stored object was withdrawn', async () => {
     vi.stubGlobal(
       'fetch',
-      viewerFetch({ content: () => errorResponse(410, 'GONE', 'File content is no longer available') }),
+      viewerFetch({
+        content: () => errorResponse(410, 'GONE', 'File content is no longer available'),
+      }),
     )
     renderViewer({ name: 'MSA.pdf' })
 
     await waitFor(() => expect(screen.getByText('No longer available')).toBeTruthy())
     expect(screen.getByText('File content is no longer available')).toBeTruthy()
     expect(screen.queryByTitle('MSA.pdf')).toBeNull()
-    expect(screen.getByRole('link', { name: /Back to the Data Room/i }).getAttribute('href')).toBe('/rooms/r1')
+    expect(screen.getByRole('link', { name: /Back to the Data Room/i }).getAttribute('href')).toBe(
+      '/rooms/r1',
+    )
   })
 
   it('reports no access as not found, never as forbidden', async () => {
     vi.stubGlobal(
       'fetch',
-      viewerFetch({ content: () => errorResponse(404, 'NOT_FOUND', 'Not found or you do not have access') }),
+      viewerFetch({
+        content: () => errorResponse(404, 'NOT_FOUND', 'Not found or you do not have access'),
+      }),
     )
     renderViewer()
 
@@ -129,7 +159,9 @@ describe('FileViewerPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /Version 1/ })).toBeTruthy())
 
     await userEvent.click(screen.getByRole('button', { name: /Version 1/ }))
-    await waitFor(() => expect(contentUrls(fetchMock)).toContain('/api/nodes/d1/content?version=v1'))
+    await waitFor(() =>
+      expect(contentUrls(fetchMock)).toContain('/api/nodes/d1/content?version=v1'),
+    )
     // In the url, so the reader can go back to the current version with the back button
     // and hand somebody the exact version they are looking at.
     expect(screen.getByText(/viewing/i)).toBeTruthy()

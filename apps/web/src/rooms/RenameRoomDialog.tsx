@@ -31,7 +31,13 @@ export function RenameRoomDialog({ room, onClose }: { room: Room | null; onClose
         <label className="text-sm font-medium" htmlFor="rename-room">
           Name
         </label>
-        <Input id="rename-room" autoFocus required value={name} onChange={(e) => setName(e.target.value)} />
+        <Input
+          id="rename-room"
+          autoFocus
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}

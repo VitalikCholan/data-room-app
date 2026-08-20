@@ -79,7 +79,9 @@ describe('ShareDialog', () => {
     const fetchMock = vi
       .fn()
       .mockImplementation((_url: string, init?: RequestInit) =>
-        Promise.resolve(init?.method === 'POST' ? json({ share: existingShares[0] }, 201) : json([])),
+        Promise.resolve(
+          init?.method === 'POST' ? json({ share: existingShares[0] }, 201) : json([]),
+        ),
       )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -99,29 +101,40 @@ describe('ShareDialog', () => {
   })
 
   it('lists current shares and revokes one, but only after a confirmation', async () => {
-    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
-      Promise.resolve(
-        init?.method === 'DELETE'
-          ? json({ ...existingShares[0], revokedAt: new Date().toISOString() })
-          : json(existingShares),
-      ),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url: string, init?: RequestInit) =>
+        Promise.resolve(
+          init?.method === 'DELETE'
+            ? json({ ...existingShares[0], revokedAt: new Date().toISOString() })
+            : json(existingShares),
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     renderDialog()
     await userEvent.click(screen.getByRole('tab', { name: /People/i }))
     await waitFor(() => expect(screen.getByText('counsel@example.com')).toBeTruthy())
 
-    await userEvent.click(screen.getByRole('button', { name: /Revoke access for counsel@example.com/i }))
+    await userEvent.click(
+      screen.getByRole('button', { name: /Revoke access for counsel@example.com/i }),
+    )
     // Revocation is not undoable, so the first click only asks.
-    expect(fetchMock.mock.calls.every(([, init]) => (init as RequestInit | undefined)?.method !== 'DELETE')).toBe(true)
+    expect(
+      fetchMock.mock.calls.every(
+        ([, init]) => (init as RequestInit | undefined)?.method !== 'DELETE',
+      ),
+    ).toBe(true)
 
-    await userEvent.click(screen.getByRole('button', { name: /Confirm revoking access for counsel@example.com/i }))
+    await userEvent.click(
+      screen.getByRole('button', { name: /Confirm revoking access for counsel@example.com/i }),
+    )
     await waitFor(() =>
       expect(
         fetchMock.mock.calls.some(
           ([url, init]) =>
-            (init as RequestInit | undefined)?.method === 'DELETE' && String(url).includes('/shares/s1'),
+            (init as RequestInit | undefined)?.method === 'DELETE' &&
+            String(url).includes('/shares/s1'),
         ),
       ).toBe(true),
     )
@@ -135,11 +148,21 @@ describe('ShareDialog', () => {
     await userEvent.click(screen.getByRole('tab', { name: /People/i }))
     await waitFor(() => expect(screen.getByText('counsel@example.com')).toBeTruthy())
 
-    await userEvent.click(screen.getByRole('button', { name: /Revoke access for counsel@example.com/i }))
-    await userEvent.click(screen.getByRole('button', { name: /Keep access for counsel@example.com/i }))
+    await userEvent.click(
+      screen.getByRole('button', { name: /Revoke access for counsel@example.com/i }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: /Keep access for counsel@example.com/i }),
+    )
 
-    expect(fetchMock.mock.calls.every(([, init]) => (init as RequestInit | undefined)?.method !== 'DELETE')).toBe(true)
-    expect(screen.getByRole('button', { name: /Revoke access for counsel@example.com/i })).toBeTruthy()
+    expect(
+      fetchMock.mock.calls.every(
+        ([, init]) => (init as RequestInit | undefined)?.method !== 'DELETE',
+      ),
+    ).toBe(true)
+    expect(
+      screen.getByRole('button', { name: /Revoke access for counsel@example.com/i }),
+    ).toBeTruthy()
   })
 
   it('rejects an invalid email before sending', async () => {
@@ -154,18 +177,22 @@ describe('ShareDialog', () => {
   })
 
   it('reports a rejected share as the sentence the server sent, never as a code', async () => {
-    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
-      Promise.resolve(
-        init?.method === 'POST'
-          ? json({ code: 'GONE', message: 'This item was deleted by the owner' }, 410)
-          : json([]),
-      ),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((_url: string, init?: RequestInit) =>
+        Promise.resolve(
+          init?.method === 'POST'
+            ? json({ code: 'GONE', message: 'This item was deleted by the owner' }, 410)
+            : json([]),
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     renderDialog()
     await userEvent.click(screen.getByRole('button', { name: /Create link/i }))
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/deleted by the owner/i))
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toMatch(/deleted by the owner/i),
+    )
     expect(screen.getByRole('alert').textContent).not.toMatch(/GONE|410/)
   })
 

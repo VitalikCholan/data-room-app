@@ -8,16 +8,39 @@ import { VersionHistoryDrawer } from './VersionHistoryDrawer'
 const now = new Date().toISOString()
 
 const versions = [
-  { id: 'v3', versionNo: 3, sizeBytes: 4096, mimeType: 'application/pdf', createdAt: now, isCurrent: true },
-  { id: 'v2', versionNo: 2, sizeBytes: 2048, mimeType: 'application/pdf', createdAt: now, isCurrent: false },
-  { id: 'v1', versionNo: 1, sizeBytes: 1024, mimeType: 'application/pdf', createdAt: now, isCurrent: false },
+  {
+    id: 'v3',
+    versionNo: 3,
+    sizeBytes: 4096,
+    mimeType: 'application/pdf',
+    createdAt: now,
+    isCurrent: true,
+  },
+  {
+    id: 'v2',
+    versionNo: 2,
+    sizeBytes: 2048,
+    mimeType: 'application/pdf',
+    createdAt: now,
+    isCurrent: false,
+  },
+  {
+    id: 'v1',
+    versionNo: 1,
+    sizeBytes: 1024,
+    mimeType: 'application/pdf',
+    createdAt: now,
+    isCurrent: false,
+  },
 ]
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 function renderDrawer(role: 'OWNER' | 'VIEWER', selectedVersionId: string | null = null) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   const onSelectVersion = vi.fn()
   const view = render(
     <QueryClientProvider client={client}>
@@ -51,7 +74,9 @@ describe('VersionHistoryDrawer', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(versions)))
     renderDrawer('OWNER')
     // Two older versions, and nothing to restore on the one already current.
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2),
+    )
   })
 
   it('hides restore from a viewer, who may read every version but change none', async () => {
@@ -67,7 +92,9 @@ describe('VersionHistoryDrawer', () => {
     const fetchMock = vi.fn().mockResolvedValue(json(versions))
     vi.stubGlobal('fetch', fetchMock)
     renderDrawer('OWNER')
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2),
+    )
 
     await userEvent.click(screen.getAllByRole('button', { name: /^Restore/i })[0])
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
@@ -84,19 +111,23 @@ describe('VersionHistoryDrawer', () => {
       )
     vi.stubGlobal('fetch', fetchMock)
     const { onSelectVersion } = renderDrawer('OWNER')
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2))
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /^Restore/i })).toHaveLength(2),
+    )
 
     await userEvent.click(screen.getAllByRole('button', { name: /^Restore/i })[0])
     await userEvent.click(screen.getByRole('button', { name: /Restore version 2/i }))
 
     await waitFor(() =>
-      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/nodes/d1/versions/v2/restore'))).toBe(true),
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).includes('/nodes/d1/versions/v2/restore')),
+      ).toBe(true),
     )
     // The history is now a version longer, and the viewer goes back to what is current.
     await waitFor(() =>
-      expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/nodes/d1/versions')).length).toBeGreaterThan(
-        1,
-      ),
+      expect(
+        fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/nodes/d1/versions')).length,
+      ).toBeGreaterThan(1),
     )
     expect(onSelectVersion).toHaveBeenCalledWith(null)
   })
@@ -120,7 +151,10 @@ describe('VersionHistoryDrawer', () => {
   })
 
   it('surfaces a failed history rather than an empty panel', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'UNKNOWN', message: 'boom' }, 500)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json({ code: 'UNKNOWN', message: 'boom' }, 500)),
+    )
     renderDrawer('OWNER')
     await waitFor(() => expect(screen.getByText(/Something went wrong/i)).toBeTruthy())
   })

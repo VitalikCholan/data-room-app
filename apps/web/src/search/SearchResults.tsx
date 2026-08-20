@@ -43,7 +43,8 @@ export function SearchResults({
   if (!isSearchable(trimmed)) {
     return <EmptyState title="Keep typing" hint="Enter at least two characters to search." />
   }
-  if (search.isError) return <ErrorState error={search.error} onRetry={() => void search.refetch()} />
+  if (search.isError)
+    return <ErrorState error={search.error} onRetry={() => void search.refetch()} />
   if (!search.data) return <TableSkeleton rows={4} />
   if (search.data.items.length === 0) {
     return (
@@ -56,7 +57,11 @@ export function SearchResults({
   }
 
   return (
-    <div className="divide-y divide-border" role="list" aria-label={`Search results for ${trimmed}`}>
+    <div
+      className="divide-y divide-border"
+      role="list"
+      aria-label={`Search results for ${trimmed}`}
+    >
       {search.data.items.map((hit) => (
         <SearchHitRow key={hit.id} roomId={roomId} hit={hit} navigation={navigation} />
       ))}
@@ -73,7 +78,8 @@ const SearchHitRow = memo(function SearchHitRow({
   hit: SearchHit
   navigation: SearchNavigation
 }) {
-  const href = hit.type === 'FOLDER' ? `/rooms/${roomId}/f/${hit.id}` : `/rooms/${roomId}/file/${hit.id}`
+  const href =
+    hit.type === 'FOLDER' ? `/rooms/${roomId}/f/${hit.id}` : `/rooms/${roomId}/file/${hit.id}`
   const navigateFolder = navigation.onNavigateFolder
   const openFile = navigation.onOpenFile
   const inPlace =
@@ -92,13 +98,21 @@ const SearchHitRow = memo(function SearchHitRow({
       )}
       <div className="min-w-0 flex-1">
         {inPlace ? (
-          <button type="button" className="block max-w-full truncate text-left text-sm hover:text-accent" onClick={inPlace}>
+          <button
+            type="button"
+            className="block max-w-full truncate text-left text-sm hover:text-accent"
+            onClick={inPlace}
+          >
             {hit.name}
           </button>
         ) : (
           // The name travels with the navigation: the API has no single-node read, so the
           // viewer would otherwise have nothing to put in its heading.
-          <Link to={href} state={{ name: hit.name }} className="block truncate text-sm hover:text-accent">
+          <Link
+            to={href}
+            state={{ name: hit.name }}
+            className="block truncate text-sm hover:text-accent"
+          >
             {hit.name}
           </Link>
         )}

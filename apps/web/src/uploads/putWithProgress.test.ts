@@ -31,7 +31,9 @@ describe('putWithProgress', () => {
     // `addEventListener('abort')` never fires on an already-aborted signal, so a cancel
     // made while the presign was still in flight used to be silently dropped and the
     // file uploaded anyway.
-    await expect(putWithProgress('https://bucket.test/put', pdf(), () => {}, controller.signal)).rejects.toMatchObject({
+    await expect(
+      putWithProgress('https://bucket.test/put', pdf(), () => {}, controller.signal),
+    ).rejects.toMatchObject({
       name: 'AbortError',
     })
     expect(calls.open).not.toHaveBeenCalled()

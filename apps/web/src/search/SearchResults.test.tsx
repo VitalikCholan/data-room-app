@@ -32,10 +32,7 @@ const hits = {
   nextCursor: null,
 }
 
-function renderResults(
-  term: string,
-  extra: Partial<Parameters<typeof SearchResults>[0]> = {},
-) {
+function renderResults(term: string, extra: Partial<Parameters<typeof SearchResults>[0]> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const onClear = vi.fn()
   const view = render(
@@ -62,8 +59,12 @@ describe('SearchResults', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(hits)))
     renderResults('audit')
     await waitFor(() => expect(screen.getByText('FY23 Audit.pdf')).toBeTruthy())
-    expect(screen.getByRole('link', { name: 'FY23 Audit.pdf' }).getAttribute('href')).toBe('/rooms/r1/file/d1')
-    expect(screen.getByRole('link', { name: 'Financials' }).getAttribute('href')).toBe('/rooms/r1/f/fin')
+    expect(screen.getByRole('link', { name: 'FY23 Audit.pdf' }).getAttribute('href')).toBe(
+      '/rooms/r1/file/d1',
+    )
+    expect(screen.getByRole('link', { name: 'Financials' }).getAttribute('href')).toBe(
+      '/rooms/r1/f/fin',
+    )
   })
 
   it('shows a specific empty state naming the term', async () => {
@@ -88,7 +89,10 @@ describe('SearchResults', () => {
   })
 
   it('surfaces an error state', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'UNKNOWN', message: 'boom' }, 500)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json({ code: 'UNKNOWN', message: 'boom' }, 500)),
+    )
     renderResults('audit')
     await waitFor(() => expect(screen.getByText(/Something went wrong/i)).toBeTruthy())
   })

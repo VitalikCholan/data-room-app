@@ -5,7 +5,9 @@ import type { ReactNode } from 'react'
 export const Tabs = Primitive.Root
 
 export function TabsList({ children }: { children: ReactNode }) {
-  return <Primitive.List className="mb-4 flex gap-1 rounded-md bg-muted p-1">{children}</Primitive.List>
+  return (
+    <Primitive.List className="mb-4 flex gap-1 rounded-md bg-muted p-1">{children}</Primitive.List>
+  )
 }
 
 export function TabsTrigger({ value, children }: { value: string; children: ReactNode }) {

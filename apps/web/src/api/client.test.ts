@@ -1,8 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, fetchBinary, getAccessToken, setAccessToken, setShareToken } from './client'
+import {
+  ApiError,
+  apiRequest,
+  fetchBinary,
+  getAccessToken,
+  setAccessToken,
+  setShareToken,
+} from './client'
 
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 describe('apiRequest', () => {
@@ -24,7 +34,9 @@ describe('apiRequest', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
     vi.stubGlobal('fetch', fetchMock)
     await apiRequest('GET', '/rooms')
-    expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
+    expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).Authorization).toBe(
+      'Bearer tok-1',
+    )
   })
 
   it('attaches the share token for guests instead of a bearer', async () => {
@@ -103,16 +115,26 @@ describe('apiRequest', () => {
     setShareToken('share-1')
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ code: 'NOT_FOUND' }, 404))
     vi.stubGlobal('fetch', fetchMock)
-    await expect(apiRequest('GET', '/rooms/r1/nodes')).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' })
+    await expect(apiRequest('GET', '/rooms/r1/nodes')).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+    })
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces the server error code and details', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ code: 'NAME_CONFLICT', message: 'exists', details: { existingNodeId: 'n1' } }, 409),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse(
+          { code: 'NAME_CONFLICT', message: 'exists', details: { existingNodeId: 'n1' } },
+          409,
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
-    await expect(apiRequest('POST', '/rooms/r/folders', { body: { name: 'x' } })).rejects.toMatchObject({
+    await expect(
+      apiRequest('POST', '/rooms/r/folders', { body: { name: 'x' } }),
+    ).rejects.toMatchObject({
       status: 409,
       code: 'NAME_CONFLICT',
       details: { existingNodeId: 'n1' },
@@ -120,8 +142,14 @@ describe('apiRequest', () => {
   })
 
   it('falls back to a readable message when the body is not json', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>502</html>', { status: 502 })))
-    await expect(apiRequest('GET', '/rooms')).rejects.toMatchObject({ status: 502, code: 'UNKNOWN' })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html>502</html>', { status: 502 })),
+    )
+    await expect(apiRequest('GET', '/rooms')).rejects.toMatchObject({
+      status: 502,
+      code: 'UNKNOWN',
+    })
   })
 
   it('returns undefined for a 204 rather than throwing on empty json', async () => {
@@ -142,7 +170,10 @@ describe('fetchBinary', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(
-        new Response(new Blob(['%PDF']), { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
+        new Response(new Blob(['%PDF']), {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' },
+        }),
       )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -177,8 +208,13 @@ describe('fetchBinary', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(jsonResponse({ code: 'GONE', message: 'File content is no longer available' }, 410)),
+        .mockResolvedValue(
+          jsonResponse({ code: 'GONE', message: 'File content is no longer available' }, 410),
+        ),
     )
-    await expect(fetchBinary('/nodes/d1/content')).rejects.toMatchObject({ status: 410, code: 'GONE' })
+    await expect(fetchBinary('/nodes/d1/content')).rejects.toMatchObject({
+      status: 410,
+      code: 'GONE',
+    })
   })
 })

@@ -7,7 +7,13 @@ import { Input } from '../components/ui/input'
  * Presentational, and deliberately outside `OwnerOnly`: searching reads, so a share
  * recipient keeps it. What they may find is the API's business, not this input's.
  */
-export function SearchInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
     [onChange],

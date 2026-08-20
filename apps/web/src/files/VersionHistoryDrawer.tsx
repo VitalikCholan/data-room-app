@@ -67,7 +67,9 @@ export function VersionHistoryDrawer({
               <VersionRow
                 key={version.id}
                 version={version}
-                isViewing={version.isCurrent ? selectedVersionId === null : selectedVersionId === version.id}
+                isViewing={
+                  version.isCurrent ? selectedVersionId === null : selectedVersionId === version.id
+                }
                 isRestoring={restore.isPending}
                 onSelect={onSelectVersion}
                 onAskRestore={setConfirming}

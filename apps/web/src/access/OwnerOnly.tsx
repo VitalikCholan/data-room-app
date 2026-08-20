@@ -6,7 +6,13 @@ import { useAccess } from './AccessProvider'
  * wrapped in it, so a VIEWER never renders one — there is no `if (isGuest)` anywhere
  * else in the browser.
  */
-export function OwnerOnly({ children, fallback = null }: { children: ReactNode; fallback?: ReactNode }) {
+export function OwnerOnly({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode
+  fallback?: ReactNode
+}) {
   const { isOwner } = useAccess()
   return isOwner ? <>{children}</> : <>{fallback}</>
 }

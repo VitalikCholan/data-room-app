@@ -47,7 +47,9 @@ export function ShareList({
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm">{share.granteeEmail ?? 'Anyone with the link'}</p>
-              <p className="text-xs text-subtle">Viewer · added {formatRelativeDate(share.createdAt)}</p>
+              <p className="text-xs text-subtle">
+                Viewer · added {formatRelativeDate(share.createdAt)}
+              </p>
             </div>
 
             {isConfirming ? (

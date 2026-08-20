@@ -52,25 +52,27 @@ const searchHits = {
 }
 
 const json = (body: unknown) =>
-  new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  })
 
 const fileDrag = { dataTransfer: { types: ['Files'], files: [], getData: () => '' } }
 
 function renderRoom(role: 'OWNER' | 'VIEWER') {
-  const fetchMock = vi
-    .fn()
-    .mockImplementation((url: string) => {
-      const path = String(url)
-      if (path.includes('/search?')) return Promise.resolve(json(searchHits))
-      if (path.includes('/shares')) return Promise.resolve(json([]))
-      return Promise.resolve(json(listing(role)))
-    })
+  const fetchMock = vi.fn().mockImplementation((url: string) => {
+    const path = String(url)
+    if (path.includes('/search?')) return Promise.resolve(json(searchHits))
+    if (path.includes('/shares')) return Promise.resolve(json([]))
+    return Promise.resolve(json(listing(role)))
+  })
   vi.stubGlobal('fetch', fetchMock)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return {
     client,
     fetchMock,
-    listRequests: () => fetchMock.mock.calls.filter(([url]) => String(url).includes('/nodes?')).length,
+    listRequests: () =>
+      fetchMock.mock.calls.filter(([url]) => String(url).includes('/nodes?')).length,
     ...render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={['/rooms/r1']}>
@@ -151,7 +153,9 @@ describe('RoomPage', () => {
     expect(screen.getByText(/in Financials/i)).toBeTruthy()
     // The owner names no parent, so the API resolves access from the room and the whole
     // tree answers.
-    const searched = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/search?'))
+    const searched = fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/search?'))
     expect(searched).toHaveLength(1)
     expect(searched[0]).not.toContain('parentId')
 
@@ -184,7 +188,9 @@ describe('RoomPage', () => {
     // The listing on screen is keyed on a null parent; the finished task names the root
     // node's real id. A per-folder invalidation cannot bridge those two, and the new file
     // would stay invisible for the whole staleTime.
-    expect(client.getQueryCache().find({ queryKey: queryKeys.nodes.list('r1', null, 'name') })).toBeTruthy()
+    expect(
+      client.getQueryCache().find({ queryKey: queryKeys.nodes.list('r1', null, 'name') }),
+    ).toBeTruthy()
 
     const notify = useUploadStore.getState().onUploaded
     expect(notify).toBeTypeOf('function')

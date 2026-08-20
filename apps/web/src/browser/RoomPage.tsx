@@ -216,10 +216,22 @@ export function RoomPage() {
           />
         ) : null}
         {renaming ? (
-          <RenameDialog roomId={roomId} parentId={nodeId ?? null} sort={sort} node={renaming} onClose={closeRename} />
+          <RenameDialog
+            roomId={roomId}
+            parentId={nodeId ?? null}
+            sort={sort}
+            node={renaming}
+            onClose={closeRename}
+          />
         ) : null}
         {deleting ? (
-          <DeleteDialog roomId={roomId} parentId={nodeId ?? null} sort={sort} node={deleting} onClose={closeDelete} />
+          <DeleteDialog
+            roomId={roomId}
+            parentId={nodeId ?? null}
+            sort={sort}
+            node={deleting}
+            onClose={closeDelete}
+          />
         ) : null}
         {/*
           Two ways in, one dialog: a row's own menu, and the toolbar for the folder on

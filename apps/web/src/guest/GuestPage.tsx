@@ -91,7 +91,9 @@ export function GuestPage() {
       <div className="min-h-screen">
         <header className="flex h-14 flex-wrap items-center gap-3 border-b border-border bg-surface px-4">
           <span className="text-sm font-semibold">Data Room</span>
-          <span className="rounded bg-muted px-2 py-0.5 text-xs text-subtle">Shared with you · read-only</span>
+          <span className="rounded bg-muted px-2 py-0.5 text-xs text-subtle">
+            Shared with you · read-only
+          </span>
           <span className="min-w-0 truncate text-sm text-subtle">{shared.roomName}</span>
           <div className="flex-1" />
           {/*
@@ -102,8 +104,8 @@ export function GuestPage() {
           {auth?.user ? (
             <div className="flex items-center gap-2 text-xs text-subtle">
               <span>
-                Signed in as <span className="font-medium">{auth.user.email}</span> — this is what the recipient
-                sees
+                Signed in as <span className="font-medium">{auth.user.email}</span> — this is what
+                the recipient sees
               </span>
               <Link to="/" className="text-accent hover:underline">
                 Leave the shared view
@@ -114,7 +116,11 @@ export function GuestPage() {
 
         <main className="mx-auto w-full max-w-6xl px-4 py-6">
           {viewing ? (
-            <GuestDocument nodeId={viewing.id} name={viewing.name} onBack={openFile ? closeFile : null} />
+            <GuestDocument
+              nodeId={viewing.id}
+              name={viewing.name}
+              onBack={openFile ? closeFile : null}
+            />
           ) : (
             <FileBrowser
               roomId={shared.roomId}

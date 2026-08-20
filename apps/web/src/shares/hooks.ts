@@ -35,7 +35,8 @@ export const useShares = (nodeId: string) =>
 export function useCreateShare(nodeId: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (input: CreateShareInput) => api.post<CreateShareResult>(`/nodes/${nodeId}/shares`, input),
+    mutationFn: (input: CreateShareInput) =>
+      api.post<CreateShareResult>(`/nodes/${nodeId}/shares`, input),
     // No optimistic row: the server assigns the id, and for an email grant it may revive
     // a revoked row rather than create one — only the response knows which happened.
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.nodes.shares(nodeId) }),
@@ -54,7 +55,9 @@ export function useRevokeShare(nodeId: string) {
       const previous = client.getQueryData<Share[]>(key)
       client.setQueryData<Share[]>(key, (shares) =>
         shares?.map((share) =>
-          share.id === shareId ? { ...share, revokedAt: share.revokedAt ?? new Date().toISOString() } : share,
+          share.id === shareId
+            ? { ...share, revokedAt: share.revokedAt ?? new Date().toISOString() }
+            : share,
         ),
       )
       return { previous }

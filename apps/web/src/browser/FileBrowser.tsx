@@ -24,7 +24,12 @@ export function FileBrowser({
   return (
     <section className="rounded-lg border border-border bg-surface">
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        <Breadcrumbs roomId={roomId} crumbs={crumbs} onDropOnCrumb={onDropOnCrumb} onNavigateFolder={onNavigateCrumb} />
+        <Breadcrumbs
+          roomId={roomId}
+          crumbs={crumbs}
+          onDropOnCrumb={onDropOnCrumb}
+          onNavigateFolder={onNavigateCrumb}
+        />
       </div>
       {toolbar}
       {children}

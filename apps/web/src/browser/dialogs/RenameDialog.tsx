@@ -71,7 +71,12 @@ export function RenameDialog({
         <label className="text-sm font-medium" htmlFor="rename-node">
           Name
         </label>
-        <Input id="rename-node" ref={inputRef} value={name} onChange={(event) => setName(event.target.value)} />
+        <Input
+          id="rename-node"
+          ref={inputRef}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
         {error ? (
           <p role="alert" className="text-sm text-danger">
             {error}

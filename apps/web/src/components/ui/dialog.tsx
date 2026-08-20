@@ -44,10 +44,15 @@ export function Dialog({
             <div>
               <Primitive.Title className="text-base font-semibold">{title}</Primitive.Title>
               {description ? (
-                <Primitive.Description className="mt-1 text-sm text-subtle">{description}</Primitive.Description>
+                <Primitive.Description className="mt-1 text-sm text-subtle">
+                  {description}
+                </Primitive.Description>
               ) : null}
             </div>
-            <Primitive.Close aria-label="Close" className="rounded p-1 text-subtle hover:bg-muted hover:text-ink">
+            <Primitive.Close
+              aria-label="Close"
+              className="rounded p-1 text-subtle hover:bg-muted hover:text-ink"
+            >
               <X size={16} />
             </Primitive.Close>
           </div>

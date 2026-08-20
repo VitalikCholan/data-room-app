@@ -21,7 +21,8 @@ export const queryKeys = {
      * invalidates it, but never collides with a `list` key: 'folder-children' is not
      * a sort mode.
      */
-    folderChildren: (roomId: string, parentId: string) => ['nodes', roomId, parentId, 'folder-children'] as const,
+    folderChildren: (roomId: string, parentId: string) =>
+      ['nodes', roomId, parentId, 'folder-children'] as const,
     rollup: (nodeId: string) => ['nodes', nodeId, 'rollup'] as const,
     deletionPreview: (nodeId: string) => ['nodes', nodeId, 'deletion-preview'] as const,
     /**

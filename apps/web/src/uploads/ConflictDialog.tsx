@@ -38,12 +38,15 @@ export function ConflictDialog() {
       <div className="flex flex-col gap-2">
         {currentVersionNo === undefined ? null : (
           <>
-            <Button variant="primary" onClick={() => void resolveConflict(task.id, 'NEW_VERSION', applyToAll)}>
+            <Button
+              variant="primary"
+              onClick={() => void resolveConflict(task.id, 'NEW_VERSION', applyToAll)}
+            >
               Upload as a new version of that file
             </Button>
             <p className="text-xs text-subtle">
-              It becomes version {currentVersionNo + 1}. Nothing is lost: version {currentVersionNo} stays in the
-              file&apos;s history and can be restored.
+              It becomes version {currentVersionNo + 1}. Nothing is lost: version {currentVersionNo}{' '}
+              stays in the file&apos;s history and can be restored.
             </p>
           </>
         )}
@@ -54,13 +57,22 @@ export function ConflictDialog() {
           Keep both — upload as a numbered copy
         </Button>
         {/* The exact suffix is the server's call: it picks the first free number. */}
-        <p className="text-xs text-subtle">Keeping both stores the new file as “{numberedExample(task.name)}”.</p>
-        <Button onClick={() => void resolveConflict(task.id, 'CANCEL', applyToAll)}>Don&apos;t upload this file</Button>
+        <p className="text-xs text-subtle">
+          Keeping both stores the new file as “{numberedExample(task.name)}”.
+        </p>
+        <Button onClick={() => void resolveConflict(task.id, 'CANCEL', applyToAll)}>
+          Don&apos;t upload this file
+        </Button>
 
         {remaining > 0 ? (
           <label className="mt-2 flex items-center gap-2 text-sm text-subtle">
-            <input type="checkbox" checked={applyToAll} onChange={(event) => setApplyToAll(event.target.checked)} />
-            Do the same for the {remaining} remaining {remaining === 1 ? 'conflict' : 'conflicts'} in this batch
+            <input
+              type="checkbox"
+              checked={applyToAll}
+              onChange={(event) => setApplyToAll(event.target.checked)}
+            />
+            Do the same for the {remaining} remaining {remaining === 1 ? 'conflict' : 'conflicts'}{' '}
+            in this batch
           </label>
         ) : null}
       </div>

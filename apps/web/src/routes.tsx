@@ -20,7 +20,9 @@ const FileViewerPage = lazy(() =>
  * Also split out: a guest never reaches the owner's screens, and an owner never reaches
  * this one, so neither should pay for the other on first paint.
  */
-const GuestPage = lazy(() => import('./guest/GuestPage').then((module) => ({ default: module.GuestPage })))
+const GuestPage = lazy(() =>
+  import('./guest/GuestPage').then((module) => ({ default: module.GuestPage })),
+)
 
 const viewerFallback = <Skeleton className="m-6 h-[70vh]" />
 

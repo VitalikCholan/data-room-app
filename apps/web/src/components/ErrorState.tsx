@@ -8,7 +8,10 @@ export function messageForError(error: unknown): { title: string; hint: string }
   if (error instanceof ApiError) {
     switch (error.status) {
       case 404:
-        return { title: 'Not found', hint: 'This item does not exist, or you do not have access to it.' }
+        return {
+          title: 'Not found',
+          hint: 'This item does not exist, or you do not have access to it.',
+        }
       case 403:
         return { title: 'Read-only access', hint: 'You can view this item but not change it.' }
       case 410:
@@ -22,7 +25,15 @@ export function messageForError(error: unknown): { title: string; hint: string }
   return { title: 'Something went wrong', hint: 'Please try again.' }
 }
 
-export function ErrorState({ error, onRetry, action }: { error: unknown; onRetry?: () => void; action?: ReactNode }) {
+export function ErrorState({
+  error,
+  onRetry,
+  action,
+}: {
+  error: unknown
+  onRetry?: () => void
+  action?: ReactNode
+}) {
   const { title, hint } = messageForError(error)
   return (
     <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">

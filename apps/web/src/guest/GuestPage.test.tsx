@@ -22,7 +22,16 @@ const legalCrumb = { id: 'legal', name: 'Legal', type: 'FOLDER' }
 const dealsCrumb = { id: 'deals', name: 'Deals', type: 'FOLDER' }
 
 const listing = {
-  items: [{ id: 'd1', type: 'FILE', name: 'MSA.pdf', sizeBytes: 2048, updatedAt: now, currentVersionId: 'v1' }],
+  items: [
+    {
+      id: 'd1',
+      type: 'FILE',
+      name: 'MSA.pdf',
+      sizeBytes: 2048,
+      updatedAt: now,
+      currentVersionId: 'v1',
+    },
+  ],
   nextCursor: null,
   breadcrumbs: [legalCrumb],
   parent: { id: 'legal', name: 'Legal', parentId: null },
@@ -34,7 +43,16 @@ const listing = {
 const nestedListings: Record<string, unknown> = {
   legal: {
     ...listing,
-    items: [{ id: 'deals', type: 'FOLDER', name: 'Deals', sizeBytes: null, updatedAt: now, currentVersionId: null }],
+    items: [
+      {
+        id: 'deals',
+        type: 'FOLDER',
+        name: 'Deals',
+        sizeBytes: null,
+        updatedAt: now,
+        currentVersionId: null,
+      },
+    ],
   },
   deals: {
     ...listing,
@@ -105,7 +123,11 @@ describe('GuestPage', () => {
   it('resolves the token, then lists the shared folder read-only', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockImplementation((url: string) => Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing))),
+      vi
+        .fn()
+        .mockImplementation((url: string) =>
+          Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)),
+        ),
     )
     const { container } = renderGuest()
     await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
@@ -120,7 +142,9 @@ describe('GuestPage', () => {
   it('sends the share token, and only the share token, on the listing request', async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementation((url: string) => Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)))
+      .mockImplementation((url: string) =>
+        Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)),
+      )
     vi.stubGlobal('fetch', fetchMock)
     renderGuest()
     await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
@@ -165,7 +189,9 @@ describe('GuestPage', () => {
 
     // Pinned to the shared node: without this the API would resolve access from the room
     // and a guest could name a file they were never given.
-    const searched = fetchMock.mock.calls.map(([url]) => String(url)).filter((url) => url.includes('/search?'))
+    const searched = fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/search?'))
     expect(searched).toHaveLength(1)
     expect(new URL(searched[0], 'http://test').searchParams.get('parentId')).toBe('legal')
     // Still no url out of the share: the hit is a control, not a link.
@@ -176,25 +202,35 @@ describe('GuestPage', () => {
   })
 
   it('shows the revoked message on 410 rather than a bare not-found', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'GONE', message: 'This link is no longer active' }, 410)))
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(json({ code: 'GONE', message: 'This link is no longer active' }, 410)),
+    )
     renderGuest()
     await waitFor(() => expect(screen.getByText(/no longer active/i)).toBeTruthy())
   })
 
   it('shows a not-found message for a token that never existed', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({ code: 'NOT_FOUND', message: 'Not found' }, 404)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(json({ code: 'NOT_FOUND', message: 'Not found' }, 404)),
+    )
     renderGuest()
     await waitFor(() => expect(screen.getByText(/link is not valid/i)).toBeTruthy())
   })
 
   it('shows the owner-deleted message when the item disappears mid-session', async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(
-        url.includes('/shared/')
-          ? json(bootstrap)
-          : json({ code: 'GONE', message: 'This item was deleted by the owner' }, 410),
-      ),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(
+          url.includes('/shared/')
+            ? json(bootstrap)
+            : json({ code: 'GONE', message: 'This item was deleted by the owner' }, 410),
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
     renderGuest()
     await waitFor(() => expect(screen.getByText(/deleted by the owner/i)).toBeTruthy())
@@ -207,13 +243,18 @@ describe('GuestPage', () => {
   it('renders a shared file itself, without ever asking for a folder listing', async () => {
     Object.assign(URL, { createObjectURL: () => 'blob:pdf', revokeObjectURL: () => undefined })
     const fileBootstrap = { ...bootstrap, node: { id: 'd1', name: 'MSA.pdf', type: 'FILE' } }
-    const fetchMock = vi.fn().mockImplementation((url: string) =>
-      Promise.resolve(
-        url.includes('/shared/')
-          ? json(fileBootstrap)
-          : new Response(new Blob(['%PDF-1.7']), { status: 200, headers: { 'Content-Type': 'application/pdf' } }),
-      ),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string) =>
+        Promise.resolve(
+          url.includes('/shared/')
+            ? json(fileBootstrap)
+            : new Response(new Blob(['%PDF-1.7']), {
+                status: 200,
+                headers: { 'Content-Type': 'application/pdf' },
+              }),
+        ),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     renderGuest()
@@ -225,7 +266,11 @@ describe('GuestPage', () => {
   it('clears the share token when the guest view is left', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockImplementation((url: string) => Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing))),
+      vi
+        .fn()
+        .mockImplementation((url: string) =>
+          Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)),
+        ),
     )
     const { unmount } = renderGuest()
     await waitFor(() => expect(getShareToken()).toBe('tok'))
@@ -241,11 +286,15 @@ describe('GuestPage', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const { unmount } = render(<QueryClientProvider client={client}>{guestRoutes}</QueryClientProvider>)
+    const { unmount } = render(
+      <QueryClientProvider client={client}>{guestRoutes}</QueryClientProvider>,
+    )
 
     await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
     await userEvent.type(screen.getByLabelText(/Search by name/i), 'nda')
-    await waitFor(() => expect(client.getQueryCache().findAll({ queryKey: ['search'] })).toHaveLength(1))
+    await waitFor(() =>
+      expect(client.getQueryCache().findAll({ queryKey: ['search'] })).toHaveLength(1),
+    )
 
     unmount()
     // Not stale — somebody else's. An owner who opened their own link must not inherit
@@ -260,7 +309,9 @@ describe('GuestPage', () => {
     setAccessToken('owner-bearer')
     const fetchMock = vi
       .fn()
-      .mockImplementation((url: string) => Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)))
+      .mockImplementation((url: string) =>
+        Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing)),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     const { unmount } = renderGuest()
@@ -277,7 +328,12 @@ describe('GuestPage', () => {
   it('tells a signed-in visitor they are seeing the recipient view, and offers the way out', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       if (url.includes('/auth/refresh'))
-        return Promise.resolve(json({ accessToken: 'owner-bearer', user: { id: 'u1', email: 'owner@acme.io', name: 'O' } }))
+        return Promise.resolve(
+          json({
+            accessToken: 'owner-bearer',
+            user: { id: 'u1', email: 'owner@acme.io', name: 'O' },
+          }),
+        )
       return Promise.resolve(json(url.includes('/shared/') ? bootstrap : listing))
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -285,7 +341,9 @@ describe('GuestPage', () => {
     renderGuestSignedIn()
     await waitFor(() => expect(screen.getByText(/owner@acme.io/i)).toBeTruthy())
     expect(screen.getByText(/what the recipient sees/i)).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Leave the shared view/i }).getAttribute('href')).toBe('/')
+    expect(screen.getByRole('link', { name: /Leave the shared view/i }).getAttribute('href')).toBe(
+      '/',
+    )
 
     // Signing the session back in must not steal the share token from the route that owns it.
     await waitFor(() => expect(listCalls(fetchMock).length).toBeGreaterThan(0))

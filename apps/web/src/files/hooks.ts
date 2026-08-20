@@ -26,9 +26,12 @@ export function useFileContent(nodeId: string, versionId: string | null = null) 
     staleTime: 4 * 60_000,
     gcTime: 4 * 60_000,
     queryFn: ({ signal }) =>
-      fetchBinary(`/nodes/${nodeId}/content${versionId ? `?version=${encodeURIComponent(versionId)}` : ''}`, {
-        signal,
-      }),
+      fetchBinary(
+        `/nodes/${nodeId}/content${versionId ? `?version=${encodeURIComponent(versionId)}` : ''}`,
+        {
+          signal,
+        },
+      ),
   })
 }
 
@@ -44,7 +47,10 @@ export function useDocumentObjectUrl(nodeId: string, versionId: string | null = 
   // Derived from the blob during render rather than pushed into state by an effect: the
   // url is a pure function of the bytes. The effect exists only to release it, because
   // an object url left behind pins the whole PDF in memory for the rest of the session.
-  const objectUrl = useMemo(() => (content.data ? URL.createObjectURL(content.data) : null), [content.data])
+  const objectUrl = useMemo(
+    () => (content.data ? URL.createObjectURL(content.data) : null),
+    [content.data],
+  )
   useEffect(() => {
     if (!objectUrl) return
     return () => URL.revokeObjectURL(objectUrl)
@@ -69,7 +75,8 @@ export const useVersions = (nodeId: string) =>
 export function useRestoreVersion(nodeId: string, roomId: string) {
   const client = useQueryClient()
   return useMutation({
-    mutationFn: (versionId: string) => api.post<{ id: string }>(`/nodes/${nodeId}/versions/${versionId}/restore`),
+    mutationFn: (versionId: string) =>
+      api.post<{ id: string }>(`/nodes/${nodeId}/versions/${versionId}/restore`),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.nodes.versions(nodeId) })
       // The whole room prefix, not one guessed listing: the file's row may be in any

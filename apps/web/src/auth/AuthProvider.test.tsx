@@ -12,7 +12,9 @@ function Probe() {
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="user">{user?.email ?? 'none'}</span>
-      <button onClick={() => void login({ email: 'a@b.io', password: 'password123' })}>login</button>
+      <button onClick={() => void login({ email: 'a@b.io', password: 'password123' })}>
+        login
+      </button>
       <button onClick={() => void logout()}>logout</button>
     </div>
   )
@@ -51,7 +53,12 @@ describe('AuthProvider', () => {
       'fetch',
       vi
         .fn()
-        .mockResolvedValue(json({ accessToken: 'tok', user: { id: 'u1', email: 'restored@acme.io', name: 'R' } }, 201)),
+        .mockResolvedValue(
+          json(
+            { accessToken: 'tok', user: { id: 'u1', email: 'restored@acme.io', name: 'R' } },
+            201,
+          ),
+        ),
     )
     renderProbe()
     await waitFor(() => expect(screen.getByTestId('user').textContent).toBe('restored@acme.io'))
@@ -62,7 +69,9 @@ describe('AuthProvider', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(json({ code: 'INVALID_CREDENTIALS' }, 401))
-      .mockResolvedValueOnce(json({ accessToken: 'tok-2', user: { id: 'u2', email: 'a@b.io', name: 'A' } }, 201))
+      .mockResolvedValueOnce(
+        json({ accessToken: 'tok-2', user: { id: 'u2', email: 'a@b.io', name: 'A' } }, 201),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     renderProbe()
@@ -74,7 +83,9 @@ describe('AuthProvider', () => {
   it('clears the session on logout', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(json({ accessToken: 'tok', user: { id: 'u1', email: 'x@y.io', name: 'X' } }, 201))
+      .mockResolvedValueOnce(
+        json({ accessToken: 'tok', user: { id: 'u1', email: 'x@y.io', name: 'X' } }, 201),
+      )
       .mockResolvedValueOnce(json({ ok: true }))
     vi.stubGlobal('fetch', fetchMock)
 

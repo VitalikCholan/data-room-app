@@ -83,7 +83,11 @@ type UploadStore = {
   parkedCount: (batchId?: string) => number
 }
 
-const RUNNING: ReadonlySet<UploadStatus> = new Set<UploadStatus>(['presigning', 'uploading', 'confirming'])
+const RUNNING: ReadonlySet<UploadStatus> = new Set<UploadStatus>([
+  'presigning',
+  'uploading',
+  'confirming',
+])
 const ACTIVE: ReadonlySet<UploadStatus> = new Set<UploadStatus>([
   'queued',
   'presigning',
@@ -118,7 +122,9 @@ function localRejection(file: File): string | undefined {
  */
 export const useUploadStore = create<UploadStore>((set, get) => {
   const patch = (id: string, changes: Partial<UploadTask>) =>
-    set((state) => ({ tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...changes } : task)) }))
+    set((state) => ({
+      tasks: state.tasks.map((task) => (task.id === id ? { ...task, ...changes } : task)),
+    }))
 
   /** Starts as many queued tasks as the concurrency budget allows. */
   function pump() {
@@ -278,7 +284,8 @@ export const useUploadStore = create<UploadStore>((set, get) => {
       if (!asked) return
       // Remembered before anything is patched: the rest of the batch may still be
       // presigning, and those files read this on their way back with a 409.
-      if (applyToAll) set((state) => ({ batchChoices: { ...state.batchChoices, [asked.batchId]: choice } }))
+      if (applyToAll)
+        set((state) => ({ batchChoices: { ...state.batchChoices, [asked.batchId]: choice } }))
 
       const parked = get().tasks.filter((task) => task.status === 'needs-decision')
       // Scoped to the batch: "the rest of this batch" is what the checkbox promised, and
@@ -323,7 +330,9 @@ export const useUploadStore = create<UploadStore>((set, get) => {
 
     clearFinished: () =>
       set((state) => {
-        const kept = state.tasks.filter((task) => task.status !== 'done' && task.status !== 'canceled')
+        const kept = state.tasks.filter(
+          (task) => task.status !== 'done' && task.status !== 'canceled',
+        )
         const keptIds = new Set(kept.map((task) => task.id))
         for (const task of state.tasks) if (!keptIds.has(task.id)) forgetUploadProgress(task.id)
         // A batch with nobody left in it can never be asked about again.
@@ -341,6 +350,8 @@ export const useUploadStore = create<UploadStore>((set, get) => {
     pendingConflict: () => get().tasks.find((task) => task.status === 'needs-decision'),
 
     parkedCount: (batchId) =>
-      get().tasks.filter((task) => task.status === 'needs-decision' && (!batchId || task.batchId === batchId)).length,
+      get().tasks.filter(
+        (task) => task.status === 'needs-decision' && (!batchId || task.batchId === batchId),
+      ).length,
   }
 })

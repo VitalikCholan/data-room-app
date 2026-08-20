@@ -34,7 +34,13 @@ export function ShareDialog(props: ShareDialogProps) {
   )
 }
 
-function ShareDialogBody({ nodeId, nodeName, nodeType, isWholeRoom = false, onClose }: ShareDialogProps) {
+function ShareDialogBody({
+  nodeId,
+  nodeName,
+  nodeType,
+  isWholeRoom = false,
+  onClose,
+}: ShareDialogProps) {
   const shares = useShares(nodeId)
   const create = useCreateShare(nodeId)
   const revoke = useRevokeShare(nodeId)
@@ -43,10 +49,13 @@ function ShareDialogBody({ nodeId, nodeName, nodeType, isWholeRoom = false, onCl
   const [error, setError] = useState<string | null>(null)
   const createButtonRef = useRef<HTMLButtonElement>(null)
 
-  const subject = isWholeRoom ? 'this Data Room' : `${nodeType === 'FOLDER' ? 'folder' : 'file'} "${nodeName}"`
+  const subject = isWholeRoom
+    ? 'this Data Room'
+    : `${nodeType === 'FOLDER' ? 'folder' : 'file'} "${nodeName}"`
 
   /** 404, 409 and 410 all arrive with a sentence the API wrote. It is always better than ours. */
-  const explain = (err: unknown, fallback: string) => setError(err instanceof ApiError ? err.message : fallback)
+  const explain = (err: unknown, fallback: string) =>
+    setError(err instanceof ApiError ? err.message : fallback)
 
   async function createLink() {
     setError(null)
@@ -91,7 +100,9 @@ function ShareDialogBody({ nodeId, nodeName, nodeType, isWholeRoom = false, onCl
   const revokeShare = useCallback(
     (shareId: string) => {
       setError(null)
-      revoke.mutateAsync(shareId).catch((err: unknown) => explain(err, 'Could not revoke that access'))
+      revoke
+        .mutateAsync(shareId)
+        .catch((err: unknown) => explain(err, 'Could not revoke that access'))
     },
     [revoke],
   )
@@ -118,24 +129,38 @@ function ShareDialogBody({ nodeId, nodeName, nodeType, isWholeRoom = false, onCl
           {freshUrl ? (
             <div className="flex flex-col gap-1">
               <div className="flex gap-2">
-                <Input readOnly value={freshUrl} onFocus={(event) => event.currentTarget.select()} />
+                <Input
+                  readOnly
+                  value={freshUrl}
+                  onFocus={(event) => event.currentTarget.select()}
+                />
                 <Button variant="primary" className="shrink-0" onClick={() => void copyLink()}>
                   <Copy size={14} /> Copy
                 </Button>
               </div>
               <p className="text-xs text-subtle">
-                This link is shown once — you will not see it again. If you lose it, revoke it here and create
-                another.
+                This link is shown once — you will not see it again. If you lose it, revoke it here
+                and create another.
               </p>
             </div>
           ) : (
-            <Button ref={createButtonRef} variant="primary" disabled={create.isPending} onClick={() => void createLink()}>
+            <Button
+              ref={createButtonRef}
+              variant="primary"
+              disabled={create.isPending}
+              onClick={() => void createLink()}
+            >
               {create.isPending ? 'Creating…' : 'Create link'}
             </Button>
           )}
 
           {shares.data ? (
-            <ShareList shares={shares.data} mode="PUBLIC_LINK" revoking={revoke.isPending} onRevoke={revokeShare} />
+            <ShareList
+              shares={shares.data}
+              mode="PUBLIC_LINK"
+              revoking={revoke.isPending}
+              onRevoke={revokeShare}
+            />
           ) : null}
         </TabsContent>
 
@@ -152,24 +177,37 @@ function ShareDialogBody({ nodeId, nodeName, nodeType, isWholeRoom = false, onCl
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="counsel@example.com"
               />
-              <Button variant="primary" className="shrink-0" disabled={create.isPending} onClick={() => void invite()}>
+              <Button
+                variant="primary"
+                className="shrink-0"
+                disabled={create.isPending}
+                onClick={() => void invite()}
+              >
                 Invite
               </Button>
             </div>
             <p className="text-xs text-subtle">
-              They do not need an account yet — access starts the moment they register with this address.
+              They do not need an account yet — access starts the moment they register with this
+              address.
             </p>
           </div>
 
           {shares.data ? (
-            <ShareList shares={shares.data} mode="USER" revoking={revoke.isPending} onRevoke={revokeShare} />
+            <ShareList
+              shares={shares.data}
+              mode="USER"
+              revoking={revoke.isPending}
+              onRevoke={revokeShare}
+            />
           ) : null}
         </TabsContent>
       </Tabs>
 
       {shares.isError ? (
         <p role="alert" className="mt-3 text-sm text-danger">
-          {shares.error instanceof ApiError ? shares.error.message : 'Could not load who has access'}
+          {shares.error instanceof ApiError
+            ? shares.error.message
+            : 'Could not load who has access'}
         </p>
       ) : null}
       {error ? (

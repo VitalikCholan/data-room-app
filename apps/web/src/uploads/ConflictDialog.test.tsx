@@ -13,7 +13,11 @@ const parked = (id: string, name: string, batchId = 'b1'): UploadTask => ({
   name,
   status: 'needs-decision',
   progress: 0,
-  conflict: { existingNodeId: 'n9', currentVersionNo: 2, existingUpdatedAt: new Date().toISOString() },
+  conflict: {
+    existingNodeId: 'n9',
+    currentVersionNo: 2,
+    existingUpdatedAt: new Date().toISOString(),
+  },
 })
 
 describe('ConflictDialog', () => {
@@ -49,7 +53,9 @@ describe('ConflictDialog', () => {
   it('does not offer a new version when a folder holds the name, because a folder has none', () => {
     const folderClash = parked('t1', 'Legal.pdf')
     useUploadStore.setState({
-      tasks: [{ ...folderClash, conflict: { ...folderClash.conflict!, currentVersionNo: undefined } }],
+      tasks: [
+        { ...folderClash, conflict: { ...folderClash.conflict!, currentVersionNo: undefined } },
+      ],
     })
     render(<ConflictDialog />)
     expect(screen.getByRole('button', { name: /Keep both/i })).toBeTruthy()
@@ -73,7 +79,9 @@ describe('ConflictDialog', () => {
   })
 
   it('answers the whole batch from one prompt when asked to', async () => {
-    useUploadStore.setState({ tasks: [parked('t1', 'a.pdf'), parked('t2', 'b.pdf'), parked('t3', 'c.pdf')] })
+    useUploadStore.setState({
+      tasks: [parked('t1', 'a.pdf'), parked('t2', 'b.pdf'), parked('t3', 'c.pdf')],
+    })
     render(<ConflictDialog />)
     expect(screen.getByText(/2 remaining/i)).toBeTruthy()
     await userEvent.click(screen.getByRole('checkbox'))
