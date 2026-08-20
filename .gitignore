@@ -6,5 +6,4 @@ coverage/
 .env.local
 .env.test
 .DS_Store
-apps/api/openapi.json
 .superpowers/
