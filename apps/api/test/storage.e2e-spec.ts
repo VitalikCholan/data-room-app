@@ -19,7 +19,9 @@ describe('StorageService', () => {
   })
 
   it('returns null from head for an object that does not exist', async () => {
-    await expect(storage.head(blobKeyFor('nope', 'nope', 1))).resolves.toBeNull()
+    await expect(
+      storage.head(blobKeyFor('nope', 'nope', 1)),
+    ).resolves.toBeNull()
   })
 
   it('accepts a PUT to the presigned url and reports the real size and type', async () => {
