@@ -313,6 +313,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/nodes/{id}/versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Version history, newest first */
+    get: operations['FilesController_list']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/nodes/{id}/versions/{versionId}/restore': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Make an earlier version current, appended as a new version */
+    post: operations['FilesController_restore']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/nodes/{id}/shares': {
     parameters: {
       query?: never
@@ -357,6 +391,23 @@ export interface paths {
     }
     /** Resolve a public link into its target — no authentication required */
     get: operations['PublicShareController_resolve']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/rooms/{roomId}/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Find folders and files by name inside the caller scope */
+    get: operations['SearchController_find']
     put?: never
     post?: never
     delete?: never
@@ -414,10 +465,10 @@ export interface components {
       /** @example application/pdf */
       mimeType: string
       /**
-       * @description Omit to receive 409 NAME_CONFLICT and let the user choose
+       * @description Omit to receive 409 NAME_CONFLICT and let the user choose. NEW_VERSION is only valid when the name is held by a file — a folder cannot be versioned (409 NOT_VERSIONABLE)
        * @enum {string}
        */
-      onConflict?: 'KEEP_BOTH'
+      onConflict?: 'NEW_VERSION' | 'KEEP_BOTH'
     }
     ConfirmUploadDto: {
       /** @description Version id returned by presign */
@@ -908,11 +959,21 @@ export interface operations {
         }
         content?: never
       }
+      /** @description EMPTY_UPLOAD — the stored object is zero bytes; it has been deleted */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
     }
   }
   FilesController_content: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Version id; defaults to the current version */
+        version?: string
+      }
       header?: never
       path?: never
       cookie?: never
@@ -928,6 +989,51 @@ export interface operations {
       }
       /** @description Deleted by the owner, or the stored object no longer matches what was verified at upload */
       410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  FilesController_list: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Not a file, or no access */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  FilesController_restore: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        versionId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Read-only access */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description That version is already current */
+      422: {
         headers: {
           [name: string]: unknown
         }
@@ -1021,6 +1127,38 @@ export interface operations {
       }
       /** @description Link revoked, or the item was deleted */
       410: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  SearchController_find: {
+    parameters: {
+      query: {
+        q: string
+        /** @description Folder to search within; defaults to the caller scope root. A share viewer passes the shared node here */
+        parentId?: string
+        /** @description Keyset cursor from a previous page */
+        cursor?: string
+        limit?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Not found or no access */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Query shorter than two characters, or a malformed cursor */
+      422: {
         headers: {
           [name: string]: unknown
         }

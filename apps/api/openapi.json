@@ -568,6 +568,9 @@
           },
           "415": {
             "description": "Stored object is not a PDF; it has been deleted"
+          },
+          "422": {
+            "description": "EMPTY_UPLOAD — the stored object is zero bytes; it has been deleted"
           }
         },
         "security": [

@@ -255,6 +255,9 @@ importers:
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@6.0.3)
+      prettier:
+        specifier: ^3.4.2
+        version: 3.9.6
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3

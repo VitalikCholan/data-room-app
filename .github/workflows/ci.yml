@@ -32,15 +32,17 @@ jobs:
       - name: Create the bucket
         run: docker compose run --rm minio-init
 
-      # e2e specs read apps/api/.env.test, which points at a separate database on the
-      # same server so a test run can truncate freely. That database is created by hand
-      # locally (the comment in .env.test says how); here it has to be created per run.
+      # Locally the e2e suite reads apps/api/.env.test, which points at a separate
+      # database on the same server so a run can truncate freely. That file is a real env
+      # file and stays gitignored (apps/api/.env.test.example is the template), so in CI
+      # there is nothing for dotenv to load and the e2e step below supplies the same
+      # values as step-level `env:` instead. The database itself has to be created per run.
       - name: Create the e2e database
         run: docker compose exec -T postgres createdb -U dataroom dataroom_test
 
-      # DATABASE_URL is set per step, never on the job. dotenv does not overwrite a
-      # variable that already exists, so a job-level DATABASE_URL would silently win
-      # over .env.test and point the whole e2e suite at the wrong database.
+      # DATABASE_URL is set per step, never on the job: two of these steps have to point
+      # at *different* databases, and a job-level default is exactly how the e2e step
+      # would end up silently migrating or truncating the wrong one.
       - name: Migrate the e2e database
         run: pnpm --filter api exec prisma migrate deploy
         env:
@@ -52,8 +54,29 @@ jobs:
           DATABASE_URL: postgresql://dataroom:dataroom@localhost:5433/dataroom?schema=public
 
       - run: pnpm --filter api lint
+
+      # The unit suite deliberately gets no `env:`: jest.config.js loads no env file and
+      # no unit spec touches Postgres or the bucket, so a green run here also proves the
+      # 76 unit tests really are environment-free.
       - run: pnpm --filter api test
+
+      # `test:e2e` sets DOTENV_CONFIG_PATH=.env.test, which does not exist in CI, so
+      # every variable the app validates has to come from here — without this block the
+      # suite has no configuration at all. DATABASE_URL must name the *test* database:
+      # the specs truncate every table, and test/global-setup.ts aborts the run if the
+      # name does not end in `_test`.
       - run: pnpm --filter api test:e2e
+        env:
+          DATABASE_URL: postgresql://dataroom:dataroom@localhost:5433/dataroom_test?schema=public
+          JWT_SECRET: ci-jwt-secret-value-long-enough
+          REFRESH_SECRET: ci-refresh-secret-value-different
+          PUBLIC_APP_URL: http://localhost:5173
+          S3_ENDPOINT: http://localhost:9000
+          S3_BUCKET: data-room
+          S3_REGION: us-east-1
+          S3_ACCESS_KEY_ID: minioadmin
+          S3_SECRET_ACCESS_KEY: minioadmin
+          S3_FORCE_PATH_STYLE: 'true'
 
       # Emitting the contract here is what makes the web job's drift check meaningful:
       # the JSON is produced from this commit's DTOs, not from whatever was committed.
@@ -95,9 +118,17 @@ jobs:
           name: openapi
           path: apps/api
 
+      # The download above overwrote the committed apps/api/openapi.json with the one the
+      # api job emitted from this commit's DTOs, so diffing it catches a contract that was
+      # never re-emitted after a DTO change — the near miss that made this whole check
+      # pass vacuously once already.
+      - run: git diff --exit-code apps/api/openapi.json
+
       # The frontend's only source of API types is the generated schema.d.ts. Regenerating
       # it from this commit's contract and diffing is what turns a DTO change the frontend
-      # has not caught up with into a red build instead of a runtime surprise.
+      # has not caught up with into a red build instead of a runtime surprise. `generate:api`
+      # pipes openapi-typescript's output through prettier, so the committed file and a
+      # fresh regeneration are byte-identical rather than differing on quote style alone.
       - run: pnpm --filter web generate:api
       - run: git diff --exit-code apps/web/src/api/schema.d.ts
 
