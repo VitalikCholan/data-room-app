@@ -18,16 +18,11 @@ import { DeleteDialog } from './dialogs/DeleteDialog'
 import { MoveDialog } from './dialogs/MoveDialog'
 import { moveFailureMessage } from './dialogs/moveFailureMessage'
 import { RenameDialog } from './dialogs/RenameDialog'
+import { ShareDialog } from '../shares/ShareDialog'
 import { useNodeList, type NodeItem, type SortMode } from './hooks/useNodeList'
 import { useMoveNode } from './hooks/useNodeMutations'
 
-/** Stable identity: an inline arrow would re-render every memoized row on every keystroke. */
-const noop = () => undefined
-
-/**
- * The only place in the browser that fetches. Share is wired in by Task 26; the
- * handler still on `noop` is the seam it plugs into.
- */
+/** The only place in the browser that fetches. */
 export function RoomPage() {
   const { roomId = '', nodeId } = useParams()
   const [sort, setSort] = useState<SortMode>('name')
@@ -35,6 +30,8 @@ export function RoomPage() {
   const [renaming, setRenaming] = useState<NodeItem | null>(null)
   const [deleting, setDeleting] = useState<NodeItem | null>(null)
   const [moving, setMoving] = useState<NodeItem | null>(null)
+  const [sharing, setSharing] = useState<NodeItem | null>(null)
+  const [isSharingFolder, setIsSharingFolder] = useState(false)
   const list = useNodeList(roomId, nodeId ?? null, sort)
   const move = useMoveNode(roomId, nodeId ?? null, sort)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -57,6 +54,9 @@ export function RoomPage() {
   const closeRename = useCallback(() => setRenaming(null), [])
   const closeDelete = useCallback(() => setDeleting(null), [])
   const closeMove = useCallback(() => setMoving(null), [])
+  const closeShare = useCallback(() => setSharing(null), [])
+  const openShareFolder = useCallback(() => setIsSharingFolder(true), [])
+  const closeShareFolder = useCallback(() => setIsSharingFolder(false), [])
 
   // `mutateAsync` is a stable reference, so both handlers below keep their identity and
   // the memoized rows are not re-rendered by a mutation's own state changes.
@@ -123,7 +123,13 @@ export function RoomPage() {
       crumbs={first?.breadcrumbs ?? []}
       onDropOnCrumb={dropOnCrumb}
       toolbar={
-        <BrowserToolbar sort={sort} onSortChange={setSort} onCreateFolder={openCreateFolder} onPickFiles={openFilePicker} />
+        <BrowserToolbar
+          sort={sort}
+          onSortChange={setSort}
+          onCreateFolder={openCreateFolder}
+          onPickFiles={openFilePicker}
+          onShare={openShareFolder}
+        />
       }
     >
       <NodeTable
@@ -135,7 +141,7 @@ export function RoomPage() {
         onRename={setRenaming}
         onMove={setMoving}
         onDelete={setDeleting}
-        onShare={noop}
+        onShare={setSharing}
         onDropOnFolder={dropOnFolder}
         emptyAction={
           <OwnerOnly>
@@ -179,6 +185,28 @@ export function RoomPage() {
         ) : null}
         {deleting ? (
           <DeleteDialog roomId={roomId} parentId={nodeId ?? null} sort={sort} node={deleting} onClose={closeDelete} />
+        ) : null}
+        {/*
+          Two ways in, one dialog: a row's own menu, and the toolbar for the folder on
+          screen. The toolbar's copy says "this Data Room" when that folder is the room
+          root, because that is what sharing it actually hands over.
+        */}
+        {sharing ? (
+          <ShareDialog
+            nodeId={sharing.id}
+            nodeName={sharing.name}
+            nodeType={sharing.type}
+            onClose={closeShare}
+          />
+        ) : null}
+        {isSharingFolder && first ? (
+          <ShareDialog
+            nodeId={first.parent.id}
+            nodeName={first.parent.name}
+            nodeType="FOLDER"
+            isWholeRoom={first.parent.id === first.scopeRootId && !nodeId}
+            onClose={closeShareFolder}
+          />
         ) : null}
         {/* The picker starts at the caller's scope root, which the listing reports. */}
         {moving && first ? (

@@ -1,4 +1,4 @@
-import { FolderPlus, Upload } from 'lucide-react'
+import { FolderPlus, Share2, Upload } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { OwnerOnly } from '../access/OwnerOnly'
 import { Button } from '../components/ui/button'
@@ -9,12 +9,15 @@ export function BrowserToolbar({
   onSortChange,
   onCreateFolder,
   onPickFiles,
+  onShare,
   children,
 }: {
   sort: SortMode
   onSortChange: (sort: SortMode) => void
   onCreateFolder: () => void
   onPickFiles: () => void
+  /** Shares the folder currently on screen, which is the only one this toolbar knows. */
+  onShare: () => void
   children?: ReactNode
 }) {
   return (
@@ -35,6 +38,9 @@ export function BrowserToolbar({
         <option value="size">Size</option>
       </select>
       <OwnerOnly>
+        <Button size="sm" onClick={onShare}>
+          <Share2 size={16} /> Share
+        </Button>
         <Button size="sm" onClick={onCreateFolder}>
           <FolderPlus size={16} /> New folder
         </Button>
