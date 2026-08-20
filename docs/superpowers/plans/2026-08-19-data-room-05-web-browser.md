@@ -14,6 +14,26 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-data-room-design.md`
 
+> **SCOPE CUT (Ruling 32, carried from plan 03 — extra credit is out).** The API has no
+> version-history or search endpoints, so the task text below is amended:
+> - **Task 25** ships the document viewer ONLY. No version-history panel, no restore control,
+>   no `useVersions` hook, no version tests. `GET /nodes/:id/content` is the whole contract:
+>   a 302 to a 5-minute presigned GET. The viewer must handle its 410 (content withdrawn or
+>   overwritten) as a real, user-visible state — that response is reachable in production.
+> - **Task 24** conflict prompt offers KEEP_BOTH and cancel only. `NEW_VERSION` does not exist
+>   in the API's `onConflict` enum; offering it would 422.
+> - No search UI anywhere (no plan task defines one; noted so it is not added by inference).
+>
+> **Stack reality (from plan 04):** React 19, Vite 8, TS 6 with `erasableSyntaxOnly`,
+> Tailwind 4 (`@theme` tokens in src/index.css, no config file), react-router-dom v7 in library
+> mode, vitest.config.ts separate from vite.config.ts. `zustand` and `@tanstack/react-virtual`
+> are installed. Plan text saying React 18 / zustand 4 means "the installed latest".
+>
+> **Plan 04 debt this plan must clear:** `send()` in `src/api/client.ts` gives the share token
+> precedence over the bearer, so a signed-in owner who opens a share link becomes a guest for
+> every later request. Whatever sets the share token must clear it when leaving share routes.
+> Batching: Task 21+22 = one dispatch; Task 23+24+25 = one dispatch.
+
 **Done when:** An owner can navigate the whole tree, perform every folder and file operation, drag twenty PDFs in and watch them upload with a single conflict prompt for the whole batch, open one in the viewer, and restore an earlier version — and a share viewer sees the same screens with every mutation control absent.
 
 ## Global Constraints
