@@ -52,6 +52,24 @@ describe('apiRequest', () => {
     expect(getAccessToken()).toBe('fresh')
   })
 
+  it('sends the refresh cookie first-party on both the refresh and the replay', async () => {
+    setAccessToken('stale')
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ code: 'INVALID_CREDENTIALS' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'fresh' }, 201))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await apiRequest('GET', '/rooms')
+
+    // Without credentials the httpOnly refresh cookie never leaves the browser and
+    // every session dies at the 15-minute mark — silently, and only in production.
+    for (const call of fetchMock.mock.calls) {
+      expect((call[1] as RequestInit).credentials).toBe('include')
+    }
+  })
+
   it('does not attempt a second refresh for the same request', async () => {
     setAccessToken('stale')
     const fetchMock = vi
