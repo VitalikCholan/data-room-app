@@ -6,6 +6,8 @@ export const queryKeys = {
     sharedWithMe: ['rooms', 'shared-with-me'] as const,
   },
   nodes: {
+    /** Prefix of every listing in one room: a move changes two folders, so both must go stale. */
+    roomLists: (roomId: string) => ['nodes', roomId] as const,
     list: (roomId: string, parentId: string | null, sort: string) =>
       ['nodes', roomId, parentId ?? 'root', sort] as const,
     rollup: (nodeId: string) => ['nodes', nodeId, 'rollup'] as const,
