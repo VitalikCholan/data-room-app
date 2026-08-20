@@ -11,6 +11,7 @@ import { NodesModule } from './nodes/nodes.module'
 import { StorageModule } from './storage/storage.module'
 import { UploadsModule } from './uploads/uploads.module'
 import { FilesModule } from './files/files.module'
+import { SharesModule } from './shares/shares.module'
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FilesModule } from './files/files.module'
     StorageModule,
     UploadsModule,
     FilesModule,
+    SharesModule,
   ],
   controllers: [HealthController],
 })
