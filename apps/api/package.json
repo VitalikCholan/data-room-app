@@ -14,7 +14,7 @@
     "test": "jest",
     "test:e2e": "DOTENV_CONFIG_PATH=.env.test jest --config ./jest.e2e.config.js --runInBand",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "seed": "ts-node src/seed/seed.ts",
+    "seed": "nest build && node dist/seed/seed.js",
     "openapi:emit": "nest build && node dist/openapi.js"
   },
   "dependencies": {
