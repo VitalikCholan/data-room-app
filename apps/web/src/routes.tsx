@@ -3,6 +3,7 @@ import { LoginPage } from './auth/LoginPage'
 import { RegisterPage } from './auth/RegisterPage'
 import { GoogleCallbackPage } from './auth/GoogleCallbackPage'
 import { RequireAuth } from './auth/RequireAuth'
+import { RoomPage } from './browser/RoomPage'
 import { DashboardPage } from './rooms/DashboardPage'
 
 export function AppRoutes() {
@@ -16,6 +17,22 @@ export function AppRoutes() {
         element={
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/rooms/:roomId"
+        element={
+          <RequireAuth>
+            <RoomPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/rooms/:roomId/f/:nodeId"
+        element={
+          <RequireAuth>
+            <RoomPage />
           </RequireAuth>
         }
       />
