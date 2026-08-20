@@ -92,6 +92,8 @@ const uploadedInRoot = (): UploadTask => ({
   name: 'NDA.pdf',
   status: 'done',
   progress: 100,
+  nodeId: 'd1',
+  versionId: 'v2',
 })
 
 describe('RoomPage', () => {
@@ -189,5 +191,23 @@ describe('RoomPage', () => {
     await act(async () => notify?.(uploadedInRoot()))
 
     await waitFor(() => expect(listRequests()).toBe(2))
+  })
+
+  it('drops the cached bytes and history of a file that just gained a version', async () => {
+    const { client } = renderRoom('OWNER')
+    await waitFor(() => expect(screen.getByText('MSA.pdf')).toBeTruthy())
+
+    // A viewer visited earlier in the session left the current bytes cached for four
+    // minutes; an upload with onConflict NEW_VERSION has just made them the wrong ones.
+    client.setQueryData(queryKeys.nodes.content('d1'), new Blob(['old']))
+    client.setQueryData(queryKeys.nodes.versions('d1'), [])
+
+    const notify = useUploadStore.getState().onUploaded
+    await act(async () => notify?.(uploadedInRoot()))
+
+    await waitFor(() => {
+      expect(client.getQueryState(queryKeys.nodes.content('d1'))?.isInvalidated).toBe(true)
+      expect(client.getQueryState(queryKeys.nodes.versions('d1'))?.isInvalidated).toBe(true)
+    })
   })
 })

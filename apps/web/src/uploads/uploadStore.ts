@@ -15,11 +15,12 @@ export type ConflictInfo = {
 }
 
 /**
- * KEEP_BOTH is the API's entire `onConflict` enum (Ruling 32) — there is no
- * NEW_VERSION, and sending one would 422. CANCEL is client-side only: it drops the
- * task without asking the server anything.
+ * KEEP_BOTH and NEW_VERSION are the API's `onConflict` enum: one stores the file under a
+ * numbered name, the other uploads into the file already there as its next version.
+ * CANCEL is client-side only — it drops the task without asking the server anything.
  */
-export type ConflictChoice = 'KEEP_BOTH' | 'CANCEL'
+export type ConflictStrategy = 'KEEP_BOTH' | 'NEW_VERSION'
+export type ConflictChoice = ConflictStrategy | 'CANCEL'
 
 export type UploadStatus =
   | 'queued'
@@ -46,7 +47,8 @@ export type UploadTask = {
   nodeId?: string
   versionId?: string
   conflict?: ConflictInfo
-  onConflict?: 'KEEP_BOTH'
+  /** Set only on a second attempt: the strategy the user chose, resent to presign. */
+  onConflict?: ConflictStrategy
   controller?: AbortController
 }
 
@@ -142,7 +144,7 @@ export const useUploadStore = create<UploadStore>((set, get) => {
   function applyConflict(taskId: string, batchId: string, conflict: ConflictInfo | undefined) {
     const decided = get().batchChoices[batchId]
     if (decided === 'CANCEL') patch(taskId, { status: 'canceled', conflict: undefined })
-    else if (decided === 'KEEP_BOTH') patch(taskId, { status: 'queued', onConflict: 'KEEP_BOTH', conflict: undefined })
+    else if (decided) patch(taskId, { status: 'queued', onConflict: decided, conflict: undefined })
     // Park it and upload nothing until the user decides.
     else patch(taskId, { status: 'needs-decision', conflict })
   }
@@ -172,8 +174,8 @@ export const useUploadStore = create<UploadStore>((set, get) => {
       )
     } catch (error) {
       if (isAbort(error) || isCanceled(taskId)) patch(taskId, { status: 'canceled' })
-      // A conflict the server still reports after KEEP_BOTH is a real failure, not
-      // another question — asking again would loop forever.
+      // A conflict the server still reports after a strategy was sent is a real failure,
+      // not another question — asking again would loop forever.
       else if (error instanceof ApiError && error.code === 'NAME_CONFLICT' && !task.onConflict) {
         applyConflict(taskId, task.batchId, error.details as ConflictInfo | undefined)
       } else {
@@ -196,7 +198,8 @@ export const useUploadStore = create<UploadStore>((set, get) => {
       status: 'uploading',
       nodeId: presigned.nodeId,
       versionId: presigned.versionId,
-      // KEEP_BOTH may have suffixed the name; show what the room will actually hold.
+      // KEEP_BOTH may have suffixed the name, and NEW_VERSION answers with the existing
+      // node's id rather than a fresh one; show what the room will actually hold.
       name: presigned.name,
     })
 
@@ -286,7 +289,7 @@ export const useUploadStore = create<UploadStore>((set, get) => {
 
       for (const task of targets) {
         if (choice === 'CANCEL') patch(task.id, { status: 'canceled', conflict: undefined })
-        else patch(task.id, { status: 'queued', onConflict: 'KEEP_BOTH', conflict: undefined })
+        else patch(task.id, { status: 'queued', onConflict: choice, conflict: undefined })
       }
       pump()
     },

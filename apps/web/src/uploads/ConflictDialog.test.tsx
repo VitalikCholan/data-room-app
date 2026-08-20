@@ -29,12 +29,39 @@ describe('ConflictDialog', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('offers keep-both and cancel only — the API has no other strategy', () => {
+  it('offers all three of the API strategies against an existing file', () => {
     useUploadStore.setState({ tasks: [parked('t1', 'invoice.pdf')] })
     render(<ConflictDialog />)
     expect(screen.getByRole('button', { name: /Keep both/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /new version/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Don't upload/i })).toBeTruthy()
-    expect(screen.queryByText(/new version/i)).toBeNull()
+    // The number it will get, so "new version" is not a guess about what happens next.
+    expect(screen.getByText(/version 3/i)).toBeTruthy()
+  })
+
+  it('uploads as a new version of the existing file when asked to', async () => {
+    useUploadStore.setState({ tasks: [parked('t1', 'invoice.pdf')] })
+    render(<ConflictDialog />)
+    await userEvent.click(screen.getByRole('button', { name: /new version/i }))
+    expect(resolveConflict).toHaveBeenCalledWith('t1', 'NEW_VERSION', false)
+  })
+
+  it('does not offer a new version when a folder holds the name, because a folder has none', () => {
+    const folderClash = parked('t1', 'Legal.pdf')
+    useUploadStore.setState({
+      tasks: [{ ...folderClash, conflict: { ...folderClash.conflict!, currentVersionNo: undefined } }],
+    })
+    render(<ConflictDialog />)
+    expect(screen.getByRole('button', { name: /Keep both/i })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /new version/i })).toBeNull()
+  })
+
+  it('answers the whole batch with a new version too', async () => {
+    useUploadStore.setState({ tasks: [parked('t1', 'a.pdf'), parked('t2', 'b.pdf')] })
+    render(<ConflictDialog />)
+    await userEvent.click(screen.getByRole('checkbox'))
+    await userEvent.click(screen.getByRole('button', { name: /new version/i }))
+    expect(resolveConflict).toHaveBeenCalledWith('t1', 'NEW_VERSION', true)
   })
 
   it('keeps both for one file when the batch has no other conflict', async () => {

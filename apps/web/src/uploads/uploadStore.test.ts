@@ -137,6 +137,60 @@ describe('uploadStore', () => {
     ).toHaveLength(3)
   })
 
+  it('uploads into the existing file when the answer is NEW_VERSION', async () => {
+    apiMock.post.mockImplementation(async (path: string, body: { onConflict?: string }) => {
+      if (path.includes('presign') && !body.onConflict) throw await conflict()
+      // The server answers with the *existing* node and the next version number, which
+      // is the whole difference between this and KEEP_BOTH.
+      if (path.includes('presign')) return presignResponse({ nodeId: 'n9', versionId: 'v3', versionNo: 3 })
+      return {}
+    })
+    putMock.putWithProgress.mockResolvedValue(undefined)
+
+    await useUploadStore.getState().enqueue([pdf('a.pdf')], 'r1', 'p1')
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('needs-decision'))
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', false)
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('done'))
+
+    const presigns = apiMock.post.mock.calls.filter(([path]) => (path as string).includes('presign'))
+    expect((presigns[1][1] as { onConflict?: string }).onConflict).toBe('NEW_VERSION')
+    expect(tasks()[0].nodeId).toBe('n9')
+    expect(tasks()[0].versionId).toBe('v3')
+  })
+
+  it('remembers NEW_VERSION for the whole batch, including files still presigning', async () => {
+    apiMock.post.mockImplementation(async (path: string, body: { onConflict?: string }) => {
+      if (path.includes('presign') && !body.onConflict) throw await conflict()
+      if (path.includes('presign')) return presignResponse()
+      return {}
+    })
+    putMock.putWithProgress.mockResolvedValue(undefined)
+
+    await useUploadStore.getState().enqueue([pdf('a.pdf'), pdf('b.pdf'), pdf('c.pdf')], 'r1', 'p1')
+    await vi.waitFor(() => expect(tasks().filter((task) => task.status === 'needs-decision')).toHaveLength(3))
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', true)
+    await vi.waitFor(() => expect(tasks().every((task) => task.status === 'done')).toBe(true))
+    expect(useUploadStore.getState().batchChoices[tasks()[0].batchId]).toBe('NEW_VERSION')
+    expect(
+      apiMock.post.mock.calls.filter(
+        ([path, body]) =>
+          (path as string).includes('presign') && (body as { onConflict?: string }).onConflict === 'NEW_VERSION',
+      ),
+    ).toHaveLength(3)
+  })
+
+  it('treats a conflict the server still reports after NEW_VERSION as a failure, not a question', async () => {
+    apiMock.post.mockRejectedValue(await conflict())
+    await useUploadStore.getState().enqueue([pdf('a.pdf')], 'r1', 'p1')
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('needs-decision'))
+
+    await useUploadStore.getState().resolveConflict(tasks()[0].id, 'NEW_VERSION', false)
+    // Asking again would loop forever.
+    await vi.waitFor(() => expect(tasks()[0].status).toBe('error'))
+  })
+
   it('cancelling one conflict drops only that task', async () => {
     apiMock.post.mockRejectedValue(await conflict())
     await useUploadStore.getState().enqueue([pdf('a.pdf'), pdf('b.pdf')], 'r1', 'p1')
