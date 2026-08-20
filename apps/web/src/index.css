@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-surface: #ffffff;
+  --color-muted: #f6f7f9;
+  --color-border: #e4e6eb;
+  --color-ink: #101317;
+  --color-subtle: #697280;
+  --color-accent: #1f6feb;
+  --color-danger: #c62828;
+  --shadow-panel: 0 8px 24px -12px rgba(16, 19, 23, 0.24);
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-muted text-ink antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
