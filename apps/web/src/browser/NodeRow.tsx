@@ -76,7 +76,11 @@ export const NodeRow = memo(function NodeRow({
         <FileText size={16} className="shrink-0 text-subtle" />
       )}
 
-      <Link to={href} className="min-w-0 flex-1 truncate text-sm hover:text-accent">
+      {/*
+        The name travels with the navigation because the API has no single-node read:
+        the viewer would otherwise have nothing to put in its heading.
+      */}
+      <Link to={href} state={{ name: node.name }} className="min-w-0 flex-1 truncate text-sm hover:text-accent">
         {node.name}
       </Link>
 
@@ -94,7 +98,7 @@ export const NodeRow = memo(function NodeRow({
           </Button>
         </DropdownTrigger>
         <DropdownContent>
-          <DropdownItem onSelect={() => void navigate(href)}>Open</DropdownItem>
+          <DropdownItem onSelect={() => void navigate(href, { state: { name: node.name } })}>Open</DropdownItem>
           {isOwner ? (
             <>
               <DropdownSeparator />

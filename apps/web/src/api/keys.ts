@@ -18,6 +18,8 @@ export const queryKeys = {
     folderChildren: (roomId: string, parentId: string) => ['nodes', roomId, parentId, 'folder-children'] as const,
     rollup: (nodeId: string) => ['nodes', nodeId, 'rollup'] as const,
     deletionPreview: (nodeId: string) => ['nodes', nodeId, 'deletion-preview'] as const,
+    /** The viewer's document bytes. Short-lived: the presigned GET behind it lives 5 minutes. */
+    content: (nodeId: string) => ['nodes', nodeId, 'content'] as const,
     versions: (nodeId: string) => ['nodes', nodeId, 'versions'] as const,
     shares: (nodeId: string) => ['nodes', nodeId, 'shares'] as const,
   },
