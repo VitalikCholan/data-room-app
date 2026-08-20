@@ -10,6 +10,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiSecurity,
   ApiTags,
@@ -49,6 +50,14 @@ export class FilesController {
     status: 410,
     description:
       'Deleted by the owner, or the stored object no longer matches what was verified at upload',
+  })
+  // Declared explicitly because Swagger infers a bare @Query() param as required, and
+  // the generated client the frontend builds from this contract would then demand a
+  // version id on every content fetch.
+  @ApiQuery({
+    name: 'version',
+    required: false,
+    description: 'Version id; defaults to the current version',
   })
   async content(
     @Access() ctx: AccessContext,
