@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // The /api dev proxy mirrors the production Vercel rewrite: the browser only
 // ever talks to its own origin, so the refresh cookie stays first-party.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     proxy: {
       '/api': {
