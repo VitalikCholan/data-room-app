@@ -428,8 +428,16 @@ Two known sharp edges, both real:
 ## Where AI was used
 
 This repository was built with Claude Code, working from six written plans
-(`docs/superpowers/plans/`) derived from a single spec. The workflow was deliberately
-adversarial rather than "generate and hope":
+(`docs/superpowers/plans/`) derived from a single spec. The division of labor was
+explicit: **I acted as the architect and reviewer** — setting the requirements, choosing
+the stack and the deploy targets, approving or rejecting each design decision, reviewing
+every PR before merge, and verifying the deployed app by hand. **Claude was the
+instrument**: brainstorming design alternatives (materialized path vs. closure table,
+two-phase upload, deepest-grant-wins), generating the code and the tests, and exercising
+the running app — driving the browser through upload, move, delete and share flows to
+confirm they work, not just compile.
+
+The workflow was deliberately adversarial rather than "generate and hope":
 
 - **Plan first, then execute task by task.** Each plan task named its files, its
   interfaces, and its test before any implementation. Tasks were dispatched to subagents
