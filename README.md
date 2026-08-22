@@ -36,9 +36,7 @@ though the model already carries roles, see [How it scales](#how-it-scales).
 | | |
 | --- | --- |
 | Web app | https://data-room-app-sage.vercel.app |
-| API | https://api-production-f651.up.railway.app |
 | API docs (Swagger) | https://api-production-f651.up.railway.app/docs |
-| Health | https://data-room-app-sage.vercel.app/api/health → `{"status":"ok"}` |
 
 The browser only ever talks to the Vercel origin: `vercel.json` rewrites `/api/*` to the
 Railway host, so every request is first-party and the `SameSite=Lax` refresh cookie
