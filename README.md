@@ -41,7 +41,7 @@ though the model already carries roles, see [How it scales](#how-it-scales).
 The browser only ever talks to the Vercel origin: `vercel.json` rewrites `/api/*` to the
 Railway host, so every request is first-party and the `SameSite=Lax` refresh cookie
 survives. The same prefix is proxied in Vite's dev server, so local and production behave
-identically — the health URL above goes through the rewrite, not straight to the API.
+identically.
 
 `vercel.json` also carries a catch-all rewrite to `/index.html`; without it a reload on a
 client route like `/rooms/<id>` would 404, since only `/` exists as a file. Vercel serves
